@@ -1,0 +1,72 @@
+src/ai/genkit.ts(1,22): error TS2307: Cannot find module 'genkit' or its corresponding type declarations.
+src/ai/genkit.ts(2,24): error TS2307: Cannot find module '@genkit-ai/googleai' or its corresponding type declarations.
+src/app/page.tsx(71,79): error TS2345: Argument of type 'CollectionReference<DocumentData, DocumentData>' is not assignable to parameter of type 'Query<Regatta, DocumentData>'.
+  Types of property 'converter' are incompatible.
+    Type 'FirestoreDataConverter<DocumentData, DocumentData> | null' is not assignable to type 'FirestoreDataConverter<Regatta, DocumentData> | null'.
+      Type 'FirestoreDataConverter<DocumentData, DocumentData>' is not assignable to type 'FirestoreDataConverter<Regatta, DocumentData>'.
+        The types returned by 'fromFirestore(...)' are incompatible between these types.
+          Type 'DocumentData' is missing the following properties from type 'Regatta': id, name, date, type, heats
+src/app/regatta/[regattaId]/race-management/page.tsx(120,70): error TS2345: Argument of type 'DocumentReference<DocumentData, DocumentData> | null' is not assignable to parameter of type 'DocumentReference<Regatta, DocumentData> | null'.
+  Type 'DocumentReference<DocumentData, DocumentData>' is not assignable to type 'DocumentReference<Regatta, DocumentData>'.
+    Types of property 'converter' are incompatible.
+      Type 'FirestoreDataConverter<DocumentData, DocumentData> | null' is not assignable to type 'FirestoreDataConverter<Regatta, DocumentData> | null'.
+        Type 'FirestoreDataConverter<DocumentData, DocumentData>' is not assignable to type 'FirestoreDataConverter<Regatta, DocumentData>'.
+          The types returned by 'fromFirestore(...)' are incompatible between these types.
+            Type 'DocumentData' is missing the following properties from type 'Regatta': id, name, date, type, heats
+src/app/regatta/[regattaId]/race-management/page.tsx(129,97): error TS2345: Argument of type 'CollectionReference<DocumentData, DocumentData>' is not assignable to parameter of type 'Query<Participant, DocumentData>'.
+  Types of property 'converter' are incompatible.
+    Type 'FirestoreDataConverter<DocumentData, DocumentData> | null' is not assignable to type 'FirestoreDataConverter<Participant, DocumentData> | null'.
+      Type 'FirestoreDataConverter<DocumentData, DocumentData>' is not assignable to type 'FirestoreDataConverter<Participant, DocumentData>'.
+        The types returned by 'fromFirestore(...)' are incompatible between these types.
+          Type 'DocumentData' is missing the following properties from type 'Participant': id, name, club, licenseNumber, and 2 more.
+src/app/regatta/[regattaId]/race-management/page.tsx(256,25): error TS2322: Type '(Heat | { status: string; startTime: number; id: string; name: string; results: CompetitorRaceResult[]; })[]' is not assignable to type 'Heat[]'.
+  Type 'Heat | { status: string; startTime: number; id: string; name: string; results: CompetitorRaceResult[]; }' is not assignable to type 'Heat'.
+    Type '{ status: string; startTime: number; id: string; name: string; results: CompetitorRaceResult[]; }' is not assignable to type 'Heat'.
+      Types of property 'status' are incompatible.
+        Type 'string' is not assignable to type '"Finished" | "Not Started" | "In Progress"'.
+src/app/regatta/[regattaId]/race-management/page.tsx(463,25): error TS2322: Type '(Heat | { status: string; startTime: number; id: string; name: string; results: CompetitorRaceResult[]; })[]' is not assignable to type 'Heat[]'.
+  Type 'Heat | { status: string; startTime: number; id: string; name: string; results: CompetitorRaceResult[]; }' is not assignable to type 'Heat'.
+    Type '{ status: string; startTime: number; id: string; name: string; results: CompetitorRaceResult[]; }' is not assignable to type 'Heat'.
+      Types of property 'status' are incompatible.
+        Type 'string' is not assignable to type '"Finished" | "Not Started" | "In Progress"'.
+src/app/regatta/[regattaId]/race-management/page.tsx(477,21): error TS2322: Type '(Heat | { status: string; startTime: null; id: string; name: string; results: CompetitorRaceResult[]; })[]' is not assignable to type 'Heat[]'.
+  Type 'Heat | { status: string; startTime: null; id: string; name: string; results: CompetitorRaceResult[]; }' is not assignable to type 'Heat'.
+    Type '{ status: string; startTime: null; id: string; name: string; results: CompetitorRaceResult[]; }' is not assignable to type 'Heat'.
+      Types of property 'status' are incompatible.
+        Type 'string' is not assignable to type '"Finished" | "Not Started" | "In Progress"'.
+src/app/regatta/[regattaId]/race-management/page.tsx(503,21): error TS2322: Type '{ results: (CompetitorRaceResult | { passage: { finish: null; }; status: string; regattaParticipantId: string; rank: number | null; points: number | null; } | { passage: { ...; }; status: string; regattaParticipantId: string; rank: number | null; points: number | null; })[]; id: string; name: string; status: "Finish...' is not assignable to type 'Heat[]'.
+  Type '{ results: (CompetitorRaceResult | { passage: { finish: null; }; status: string; regattaParticipantId: string; rank: number | null; points: number | null; } | { passage: { ...; }; status: string; regattaParticipantId: string; rank: number | null; points: number | null; })[]; id: string; name: string; status: "Not St...' is not assignable to type 'Heat'.
+    Types of property 'results' are incompatible.
+      Type '(CompetitorRaceResult | { passage: { finish: null; }; status: string; regattaParticipantId: string; rank: number | null; points: number | null; } | { passage: { finish: string; }; status: string; regattaParticipantId: string; rank: number | null; points: number | null; })[]' is not assignable to type 'CompetitorRaceResult[]'.
+        Type 'CompetitorRaceResult | { passage: { finish: null; }; status: string; regattaParticipantId: string; rank: number | null; points: number | null; } | { passage: { finish: string; }; status: string; regattaParticipantId: string; rank: number | null; points: number | null; }' is not assignable to type 'CompetitorRaceResult'.
+          Type '{ passage: { finish: null; }; status: string; regattaParticipantId: string; rank: number | null; points: number | null; }' is not assignable to type 'CompetitorRaceResult'.
+            Types of property 'status' are incompatible.
+              Type 'string' is not assignable to type '"Finished" | "DNF" | "DNS" | "PEN"'.
+src/app/regatta/[regattaId]/race-management/page.tsx(525,21): error TS2322: Type '{ results: (CompetitorRaceResult | { status: string; passage: { finish: null; }; regattaParticipantId: string; rank: number | null; points: number | null; })[]; id: string; name: string; status: "Finished" | ... 1 more ... | "In Progress"; startTime: number | null; }[]' is not assignable to type 'Heat[]'.
+  Type '{ results: (CompetitorRaceResult | { status: string; passage: { finish: null; }; regattaParticipantId: string; rank: number | null; points: number | null; })[]; id: string; name: string; status: "Not Started" | "In Progress" | "Finished"; startTime: number | null; }' is not assignable to type 'Heat'.
+    Types of property 'results' are incompatible.
+      Type '(CompetitorRaceResult | { status: string; passage: { finish: null; }; regattaParticipantId: string; rank: number | null; points: number | null; })[]' is not assignable to type 'CompetitorRaceResult[]'.
+        Type 'CompetitorRaceResult | { status: string; passage: { finish: null; }; regattaParticipantId: string; rank: number | null; points: number | null; }' is not assignable to type 'CompetitorRaceResult'.
+          Type '{ status: string; passage: { finish: null; }; regattaParticipantId: string; rank: number | null; points: number | null; }' is not assignable to type 'CompetitorRaceResult'.
+            Types of property 'status' are incompatible.
+              Type 'string' is not assignable to type '"Finished" | "DNF" | "DNS" | "PEN"'.
+src/app/regatta/[regattaId]/race-management/page.tsx(554,21): error TS2322: Type '(Heat | { results: ({ rank: number; points: number; regattaParticipantId: string; passage: Passage; status: "Finished" | "DNF" | "DNS" | "PEN"; } | { rank: null; points: number; status: string; regattaParticipantId: string; passage: Passage; })[]; status: string; id: string; name: string; startTime: number | null; }...' is not assignable to type 'Heat[]'.
+  Type 'Heat | { results: ({ rank: number; points: number; regattaParticipantId: string; passage: Passage; status: "Finished" | "DNF" | "DNS" | "PEN"; } | { rank: null; points: number; status: string; regattaParticipantId: string; passage: Passage; })[]; status: string; id: string; name: string; startTime: number | null; }' is not assignable to type 'Heat'.
+    Type '{ results: ({ rank: number; points: number; regattaParticipantId: string; passage: Passage; status: "Finished" | "DNF" | "DNS" | "PEN"; } | { rank: null; points: number; status: string; regattaParticipantId: string; passage: Passage; })[]; status: string; id: string; name: string; startTime: number | null; }' is not assignable to type 'Heat'.
+      Types of property 'results' are incompatible.
+        Type '({ rank: number; points: number; regattaParticipantId: string; passage: Passage; status: "Finished" | "DNF" | "DNS" | "PEN"; } | { rank: null; points: number; status: string; regattaParticipantId: string; passage: Passage; })[]' is not assignable to type 'CompetitorRaceResult[]'.
+          Type '{ rank: number; points: number; regattaParticipantId: string; passage: Passage; status: "Finished" | "DNF" | "DNS" | "PEN"; } | { rank: null; points: number; status: string; regattaParticipantId: string; passage: Passage; }' is not assignable to type 'CompetitorRaceResult'.
+            Type '{ rank: null; points: number; status: string; regattaParticipantId: string; passage: Passage; }' is not assignable to type 'CompetitorRaceResult'.
+              Types of property 'status' are incompatible.
+                Type 'string' is not assignable to type '"Finished" | "DNF" | "DNS" | "PEN"'.
+src/app/regatta/[regattaId]/race-management/page.tsx(929,79): error TS18046: 'p' is of type 'unknown'.
+src/app/runners/page.tsx(51,91): error TS2345: Argument of type 'CollectionReference<DocumentData, DocumentData>' is not assignable to parameter of type 'Query<Participant, DocumentData>'.
+  Types of property 'converter' are incompatible.
+    Type 'FirestoreDataConverter<DocumentData, DocumentData> | null' is not assignable to type 'FirestoreDataConverter<Participant, DocumentData> | null'.
+      Type 'FirestoreDataConverter<DocumentData, DocumentData>' is not assignable to type 'FirestoreDataConverter<Participant, DocumentData>'.
+        The types returned by 'fromFirestore(...)' are incompatible between these types.
+          Type 'DocumentData' is missing the following properties from type 'Participant': id, name, club, licenseNumber, and 2 more.
+src/app/runners/page.tsx(286,34): error TS2322: Type '{ children: Element; padding: string; className: string; }' is not assignable to type 'IntrinsicAttributes & ThHTMLAttributes<HTMLTableCellElement> & RefAttributes<HTMLTableCellElement>'.
+  Property 'padding' does not exist on type 'IntrinsicAttributes & ThHTMLAttributes<HTMLTableCellElement> & RefAttributes<HTMLTableCellElement>'.
+src/app/runners/page.tsx(289,27): error TS2322: Type 'boolean | null' is not assignable to type 'CheckedState | undefined'.
+  Type 'null' is not assignable to type 'CheckedState | undefined'.

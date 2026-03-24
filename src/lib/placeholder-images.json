@@ -1,0 +1,40 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hero",
+      "description": "A windsurfer skimming across the water at sunset",
+      "imageUrl": "https://picsum.photos/seed/windsurf1/1200/800",
+      "imageHint": "windsurfer sunset"
+    },
+    {
+      "id": "participants",
+      "description": "A group of windsurfers preparing on a beach",
+      "imageUrl": "https://picsum.photos/seed/windsurf2/600/400",
+      "imageHint": "windsurfers beach"
+    },
+    {
+      "id": "race-config",
+      "description": "An aerial view of a sailing race course with buoys",
+      "imageUrl": "https://picsum.photos/seed/windsurf3/600/400",
+      "imageHint": "sailing course"
+    },
+    {
+      "id": "timed-start",
+      "description": "A starting line for a sailing regatta with committee boat",
+      "imageUrl": "https://picsum.photos/seed/windsurf4/600/400",
+      "imageHint": "sailing start"
+    },
+    {
+      "id": "tracking",
+      "description": "A windsurfer rounding a mark during a race",
+      "imageUrl": "https://picsum.photos/seed/windsurf5/600/400",
+      "imageHint": "windsurfer race"
+    },
+    {
+      "id": "results",
+      "description": "Windsurfers celebrating on a podium with trophies",
+      "imageUrl": "https://picsum.photos/seed/windsurf6/600/400",
+      "imageHint": "sailing podium"
+    }
+  ]
+}
