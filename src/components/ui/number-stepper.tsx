@@ -43,28 +43,28 @@ export function NumberStepper({
         id={id ? `${id}-decrement` : undefined}
         variant="outline"
         size="icon"
-        className="h-9 w-9"
+        className="h-11 w-11 rounded-xl"
         onClick={() => handleStep('decrement')}
         disabled={disabled || value <= min}
         type="button"
       >
         <Minus className="h-4 w-4" />
-        <span className="sr-only">Decrement</span>
+        <span className="sr-only">Diminuer</span>
       </Button>
-      <div className="w-16 text-center text-lg font-medium tabular-nums">
+      <div className="w-12 text-center font-display text-2xl font-bold tabular-nums">
         {value}
       </div>
       <Button
         id={id ? `${id}-increment` : undefined}
         variant="outline"
         size="icon"
-        className="h-9 w-9"
+        className="h-11 w-11 rounded-xl"
         onClick={() => handleStep('increment')}
         disabled={disabled || value >= max}
         type="button"
       >
         <Plus className="h-4 w-4" />
-        <span className="sr-only">Increment</span>
+        <span className="sr-only">Augmenter</span>
       </Button>
     </div>
   );

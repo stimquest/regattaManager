@@ -3,17 +3,18 @@
 import * as React from "react";
 import Link from "next/link";
 import { addDoc, collection, orderBy, query, type CollectionReference, type Query } from "firebase/firestore";
-import { CalendarDays, MapPin, Plus, Sparkles, Wind, Loader2 } from "lucide-react";
+import { ChevronRight, MapPin, Plus, Sparkles, Wind, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useFirestore, useCollection } from "@/firebase";
 import { emitFirestoreError } from "@/firebase/errors";
 import type { LandYachtSession } from "@/lib/types";
+import { Page, PageHero, HeroStat, SectionHeader, EmptyState, LiveDot, PageLoader } from "@/components/layout/page";
+import { DateBlock } from "@/components/date-block";
 
 const today = () => {
   const date = new Date();
@@ -65,68 +66,73 @@ export default function LandYachtingPage() {
     }
   };
 
-  return <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 pb-28 md:p-8">
-    <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-sky-600 via-cyan-600 to-teal-500 p-6 text-white shadow-lg md:p-9">
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-        <div className="max-w-xl">
-          <Badge className="mb-4 border-white/25 bg-white/15 text-white hover:bg-white/15">Espace club</Badge>
-          <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">Char à voile</h1>
-          <p className="mt-3 text-base text-white/90 md:text-lg">Préparez une séance, accueillez les pilotes et lancez un défi sympa.</p>
+  const active = (sessions ?? []).filter(session => session.status !== 'finished');
+  const done = (sessions ?? []).filter(session => session.status === 'finished');
+
+  const SessionCard = ({ session }: { session: LandYachtSession }) => (
+    <Link href={`/land-yachting/${session.id}`} className="pressable group flex items-center gap-4 rounded-3xl border bg-card p-4 shadow-soft hover:border-foreground/15 hover:shadow-lift sm:p-5">
+      <DateBlock date={session.date} tone={session.status === 'finished' ? 'muted' : 'teal'} />
+      <div className="min-w-0 flex-1">
+        <div className="mb-1 flex items-center gap-1.5">
+          <Badge variant={session.status === 'active' ? 'signal' : session.status === 'planned' ? 'success' : 'secondary'}>
+            {session.status === 'active' && <LiveDot className="h-2 w-2 [&>span]:h-2 [&>span]:w-2" />}
+            {sessionStatus[session.status]}
+          </Badge>
         </div>
-        <Button onClick={() => setCreateOpen(true)} className="h-14 w-full rounded-2xl bg-white px-5 text-base font-bold text-sky-800 shadow-sm hover:bg-sky-50 sm:w-auto">
-          <Plus className="mr-2 h-5 w-5" /> Préparer une séance
-        </Button>
+        <h3 className="truncate font-display text-lg font-bold leading-tight">{session.title}</h3>
+        <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+          {session.location && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{session.location}</span>}
+          <span className="flex min-w-0 items-center gap-1"><Sparkles className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{session.challenge || 'Défi du jour'}</span></span>
+        </p>
       </div>
-    </section>
+      <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-150 ease-out group-hover:translate-x-0.5" />
+    </Link>
+  );
 
-    <section className="space-y-4">
-      <div className="flex items-end justify-between gap-3">
-        <div><h2 className="text-xl font-bold">Les séances</h2><p className="text-sm text-muted-foreground">À venir et passées</p></div>
-        {sessions?.length ? <Badge variant="secondary">{sessions.length} séance{sessions.length === 1 ? '' : 's'}</Badge> : null}
+  return <Page width="narrow">
+    <PageHero
+      tone="teal"
+      eyebrow="Séances du club"
+      title="Char à voile"
+      description="Préparez une séance, accueillez les pilotes et lancez un défi convivial."
+      actions={<Button variant="sand" size="xl" className="w-full md:w-auto" onClick={() => setCreateOpen(true)}><Plus className="!size-5" />Préparer une séance</Button>}
+    >
+      <div className="grid grid-cols-2 gap-2 sm:max-w-sm sm:gap-3">
+        <HeroStat value={sessions ? active.length : '—'} label="À venir ou en cours" />
+        <HeroStat value={sessions ? done.length : '—'} label="Terminées" />
       </div>
+    </PageHero>
 
-      {loading ? <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div> :
-        sessions?.length ? <div className="grid gap-4 md:grid-cols-2">
-          {sessions.map(session => <Link key={session.id} href={`/land-yachting/${session.id}`} className="rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <Card className="h-full rounded-2xl transition-colors hover:border-primary/50 hover:bg-accent/30">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div><CardTitle className="text-lg">{session.title}</CardTitle><CardDescription className="mt-2 flex items-center gap-2"><CalendarDays className="h-4 w-4" />{new Date(`${session.date}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</CardDescription></div>
-                  <Badge variant={session.status === 'active' ? 'default' : 'secondary'}>{sessionStatus[session.status]}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
-                <div className="flex flex-wrap gap-x-4 gap-y-2">
-                  {session.location && <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4" />{session.location}</span>}
-                  <span className="flex items-center gap-1.5"><Sparkles className="h-4 w-4" />{session.challenge || 'Défi du jour'}</span>
-                </div>
-                <span aria-hidden="true" className="text-lg text-primary">›</span>
-              </CardContent>
-            </Card>
-          </Link>)}
-        </div> : <Card className="rounded-2xl border-dashed">
-          <CardContent className="flex flex-col items-center py-12 text-center">
-            <div className="mb-4 rounded-full bg-primary/10 p-4 text-primary"><Wind className="h-8 w-8" /></div>
-            <h3 className="text-lg font-semibold">Prêts à rouler ?</h3>
-            <p className="mt-1 max-w-sm text-sm text-muted-foreground">Créez votre première séance pour noter les pilotes présents, leurs chars et les points du défi du jour.</p>
-            <Button className="mt-5 h-12" onClick={() => setCreateOpen(true)}><Plus className="mr-2 h-4 w-4" /> Préparer une séance</Button>
-          </CardContent>
-        </Card>}
-    </section>
+    {loading ? <PageLoader label="Chargement des séances…" /> :
+      !sessions?.length ? <EmptyState icon={Wind} title="Prêts à rouler ?" action={<Button size="lg" className="bg-teal-700 hover:bg-teal-700/90 dark:bg-teal-400 dark:text-teal-950" onClick={() => setCreateOpen(true)}><Plus />Préparer une séance</Button>}>
+        Créez une première séance pour noter les pilotes présents, leurs chars et les points du défi du jour.
+      </EmptyState> : <div className="space-y-8">
+        {active.length > 0 && <section className="space-y-3">
+          <SectionHeader title="À venir" />
+          <div className="rise-stagger grid grid-cols-1 gap-3">{active.map(session => <SessionCard key={session.id} session={session} />)}</div>
+        </section>}
+        {done.length > 0 && <section className="space-y-3">
+          <SectionHeader title="Terminées" />
+          <div className="rise-stagger grid grid-cols-1 gap-3">{done.map(session => <SessionCard key={session.id} session={session} />)}</div>
+        </section>}
+      </div>}
 
     <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-2xl sm:max-w-lg">
-        <DialogHeader><DialogTitle>Préparer une séance</DialogTitle></DialogHeader>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Préparer une séance</DialogTitle><DialogDescription>Vous pourrez tout modifier le jour J.</DialogDescription></DialogHeader>
         <form onSubmit={createSession} className="space-y-4">
-          <div className="space-y-2"><Label htmlFor="session-title">Nom de la séance</Label><Input id="session-title" className="h-12" value={title} onChange={e => setTitle(e.target.value)} required maxLength={80} /></div>
+          <div className="space-y-2"><Label htmlFor="session-title">Nom de la séance</Label><Input id="session-title" value={title} onChange={e => setTitle(e.target.value)} required maxLength={80} /></div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2"><Label htmlFor="session-date">Date</Label><Input id="session-date" className="h-12" type="date" value={date} onChange={e => setDate(e.target.value)} required /></div>
-            <div className="space-y-2"><Label htmlFor="session-location">Lieu (facultatif)</Label><Input id="session-location" className="h-12" value={location} onChange={e => setLocation(e.target.value)} placeholder="Ex. terrain du club" maxLength={80} /></div>
+            <div className="space-y-2"><Label htmlFor="session-date">Date</Label><Input id="session-date" type="date" value={date} onChange={e => setDate(e.target.value)} required /></div>
+            <div className="space-y-2"><Label htmlFor="session-location">Lieu <span className="font-normal text-muted-foreground">(facultatif)</span></Label><Input id="session-location" value={location} onChange={e => setLocation(e.target.value)} placeholder="Ex. plage du club" maxLength={80} /></div>
           </div>
-          <div className="space-y-2"><Label htmlFor="session-challenge">Défi du jour</Label><Input id="session-challenge" className="h-12" value={challenge} onChange={e => setChallenge(e.target.value)} placeholder="Ex. slalom, meilleur tour…" maxLength={80} /></div>
-          <DialogFooter className="pt-2"><Button type="submit" className="h-12 w-full sm:w-auto" disabled={saving || !title.trim()}>{saving ? 'Création…' : 'Créer la séance'}</Button></DialogFooter>
+          <div className="space-y-2"><Label htmlFor="session-challenge">Défi du jour</Label><Input id="session-challenge" value={challenge} onChange={e => setChallenge(e.target.value)} placeholder="Ex. slalom, meilleur tour…" maxLength={80} /></div>
+          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+            <Button type="button" size="lg" variant="outline" onClick={() => setCreateOpen(false)}>Annuler</Button>
+            <Button type="submit" size="lg" disabled={saving || !title.trim()}>{saving ? <><Loader2 className="animate-spin" />Création…</> : 'Créer la séance'}</Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
-  </main>;
+  </Page>;
 }

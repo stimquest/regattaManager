@@ -1,32 +1,12 @@
-
 "use client";
 
 import * as React from "react";
 import { ArrivalEntry } from "./arrival-entry";
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { doc, collection, updateDoc, CollectionReference, addDoc, deleteDoc, writeBatch } from "firebase/firestore";
+import { doc, writeBatch } from "firebase/firestore";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription
-} from "@/components/ui/card";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,27 +19,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Play,
   Plus,
-  ArrowLeft,
-  ArrowUp,
-  ArrowDown,
   Flag,
-  ListOrdered,
   Trophy,
-  RefreshCw,
-  Clock,
-  Loader2,
   Users,
-  ShieldAlert,
-  Calculator,
   FileDown,
-  CheckCircle,
   UserPlus,
   Search,
-  FileEdit,
+  Pencil,
   Trash2,
-  GripVertical
+  GripVertical,
+  SlidersHorizontal,
+  ChevronRight,
+  Play,
+  PenLine,
 } from "lucide-react";
 import {
   Table,
@@ -69,37 +42,29 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { participantDisplayName, participantSearchText, type Heat, type Regatta, type Participant, type RegattaParticipant, type Score, type CompetitorRaceResult } from "@/lib/types";
-import { useFirestore, useDoc, useCollection } from "@/firebase";
-import { emitFirestoreError } from "@/firebase/errors";
+import { participantDisplayName, participantSearchText, type Heat, type Participant, type RegattaParticipant, type Score, type CompetitorRaceResult } from "@/lib/types";
+import { useFirestore } from "@/firebase";
 import { NumberStepper } from "@/components/ui/number-stepper";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Page, DetailHeader, SectionHeader, EmptyState, HeroStat, LiveDot, Bib, RankBadge } from "@/components/layout/page";
 
 
 export enum View { HeatsList, HeatDetail, HeatResults, OverallResults, ScoringSettings }
 export type OverallResult = { participantId: string; totalPoints: number; scores: Score[]; entryName: string; crewNames: string[]; }
+
+const statusLabel: Record<CompetitorRaceResult['status'], string> = {
+  Finished: 'Arrivé',
+  DNS: 'DNS',
+  DNF: 'DNF',
+  PEN: 'Pénalité',
+};
+
+function HeatStatusBadge({ status }: { status: Heat['status'] }) {
+  if (status === 'In Progress') return <Badge variant="signal"><LiveDot className="h-2 w-2 [&>span]:h-2 [&>span]:w-2" />En cours</Badge>;
+  if (status === 'Finished') return <Badge variant="success">Validée</Badge>;
+  return <Badge variant="secondary">En attente</Badge>;
+}
 
 export function ScoringSettingsView({ regatta, updateScoringRules, setCurrentView }: any) {
   const [rules, setRules] = React.useState(regatta.scoringRules ?? {
@@ -109,42 +74,47 @@ export function ScoringSettingsView({ regatta, updateScoringRules, setCurrentVie
     discards: 0,
   });
   const rows = [
-    ['pen', 'PEN · Pénalité'],
-    ['dns', 'DNS · N’a pas pris le départ'],
-    ['dnf', 'DNF · N’a pas terminé'],
+    ['pen', 'PEN', 'Pénalité'],
+    ['dns', 'DNS', 'N’a pas pris le départ'],
+    ['dnf', 'DNF', 'N’a pas terminé'],
   ] as const;
 
-  return <main className="flex flex-1 flex-col p-4 md:p-6">
-    <div className="flex items-center gap-3 mb-6">
-      <Button variant="ghost" size="icon" onClick={() => setCurrentView(View.HeatsList)}><ArrowLeft className="h-5 w-5" /></Button>
-      <div><h1 className="text-2xl font-bold">Règles de score</h1><p className="text-sm text-muted-foreground">{regatta.name}</p></div>
-    </div>
-    <Card className="max-w-2xl">
-      <CardHeader><CardTitle>Points de pénalité</CardTitle><CardDescription>Réglez séparément chaque statut. Le réglage actuel du club est conservé par défaut : nombre d’inscrits + 1 point.</CardDescription></CardHeader>
-      <CardContent className="space-y-5">
-        {rows.map(([key, title]) => {
+  return <Page width="narrow">
+    <DetailHeader onBack={() => setCurrentView(View.HeatsList)} backLabel="Retour à la régate" eyebrow="Règles de score" title={regatta.name} />
+    <section className="space-y-3">
+      <SectionHeader title="Points de pénalité" description="Par défaut : nombre d’inscrits + 1 point, comme au club." />
+      <div className="divide-y overflow-hidden rounded-3xl border bg-card shadow-soft">
+        {rows.map(([key, code, title]) => {
           const rule = rules[key];
-          return <div key={key} className="grid grid-cols-1 sm:grid-cols-[1fr_180px_110px] gap-3 items-center">
-            <Label>{title}</Label>
-            <Select value={rule.mode} onValueChange={(mode: 'fleetPlus' | 'fixed') => setRules({ ...rules, [key]: mode === 'fixed' ? { mode, points: 1 } : { mode, offset: 1 } })}>
-              <SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="fleetPlus">Inscrits +</SelectItem><SelectItem value="fixed">Valeur fixe</SelectItem></SelectContent>
-            </Select>
-            <Input aria-label={`Points ${key}`} type="number" min="0" step="1" value={rule.mode === 'fixed' ? rule.points : rule.offset}
-              onChange={e => setRules({ ...rules, [key]: rule.mode === 'fixed' ? { ...rule, points: Math.max(0, Number(e.target.value)) } : { ...rule, offset: Math.max(0, Number(e.target.value)) } })} />
+          return <div key={key} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:p-5">
+            <div className="flex flex-1 items-center gap-3">
+              <span className="flex h-10 w-12 items-center justify-center rounded-xl bg-destructive/10 font-display text-sm font-extrabold text-destructive">{code}</span>
+              <span className="font-semibold">{title}</span>
+            </div>
+            <div className="flex gap-2">
+              <Select value={rule.mode} onValueChange={(mode: 'fleetPlus' | 'fixed') => setRules({ ...rules, [key]: mode === 'fixed' ? { mode, points: 1 } : { mode, offset: 1 } })}>
+                <SelectTrigger className="flex-1 sm:w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="fleetPlus">Inscrits +</SelectItem><SelectItem value="fixed">Valeur fixe</SelectItem></SelectContent>
+              </Select>
+              <Input aria-label={`Points ${code}`} className="w-20 text-center font-semibold tabular-nums" inputMode="numeric" type="number" min="0" step="1" value={rule.mode === 'fixed' ? rule.points : rule.offset}
+                onChange={e => setRules({ ...rules, [key]: rule.mode === 'fixed' ? { ...rule, points: Math.max(0, Number(e.target.value)) } : { ...rule, offset: Math.max(0, Number(e.target.value)) } })} />
+            </div>
           </div>;
         })}
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_110px] gap-3 items-center border-t pt-4">
-          <Label htmlFor="settings-discards">Manches à retirer du classement général</Label>
-          <Input id="settings-discards" type="number" min="0" step="1" value={rules.discards} onChange={e => setRules({ ...rules, discards: Math.max(0, Number(e.target.value)) })} />
-        </div>
-        <p className="text-sm text-muted-foreground">Exemple : avec 12 inscrits, « Inscrits + 1 » attribue 13 points. Une valeur fixe reste identique quel que soit le nombre de participants.</p>
-      </CardContent>
-    </Card>
-    <div className="flex gap-3 mt-4">
-      <Button onClick={() => { updateScoringRules(rules); setCurrentView(View.HeatsList); }}>Enregistrer les règles</Button>
-      <Button variant="outline" onClick={() => setCurrentView(View.HeatsList)}>Annuler</Button>
+      </div>
+      <p className="px-1 text-sm text-muted-foreground">Exemple : avec 12 inscrits, « Inscrits + 1 » donne 13 points. Une valeur fixe ne dépend pas du nombre d’inscrits.</p>
+    </section>
+    <section className="space-y-3">
+      <SectionHeader title="Retraits" />
+      <div className="flex items-center justify-between gap-4 rounded-3xl border bg-card p-4 shadow-soft sm:p-5">
+        <div><p className="font-semibold">Manches retirées</p><p className="text-sm text-muted-foreground">Les moins bonnes de chaque coureur au général.</p></div>
+        <NumberStepper id="settings-discards" value={rules.discards} onChange={value => setRules({ ...rules, discards: value })} min={0} />
+      </div>
+    </section>
+    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <Button size="lg" variant="outline" onClick={() => setCurrentView(View.HeatsList)}>Annuler</Button>
+      <Button size="lg" onClick={() => { updateScoringRules(rules); setCurrentView(View.HeatsList); }}>Enregistrer les règles</Button>
     </div>
-  </main>;
+  </Page>;
 }
 
 
@@ -155,40 +125,33 @@ export function SortableParticipantItem({ rp, getParticipantName, openEditDialog
     setNodeRef,
     transform,
     transition,
+    isDragging,
   } = useSortable({id: rp.id});
-  
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
 
+  const crew = (rp.crewIds ?? []).map(getParticipantName).filter((name: string) => name !== 'N/A' && name !== rp.entryName);
+
   return (
-    <Card ref={setNodeRef} style={style} className="rounded-xl p-3">
-      <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-              <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0 cursor-grab touch-none" aria-label={`Réordonner ${rp.entryName}`} {...attributes} {...listeners}>
-                <GripVertical className="h-5 w-5 text-muted-foreground" />
-              </Button>
-              <Badge variant="secondary" className="text-base font-bold h-8 w-12 flex-shrink-0 flex items-center justify-center">{rp.bibNumber}</Badge>
-              <div className="flex-1 min-w-0">
-                  <p className="font-semibold truncate">{rp.entryName}</p>
-                  {rp.crewIds && rp.crewIds.length > 0 && (
-                      <p className="text-xs text-muted-foreground truncate">
-                          {rp.crewIds.map(getParticipantName).join(', ')}
-                      </p>
-                  )}
-              </div>
-          </div>
-          <div className="flex-shrink-0">
-            <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl" onClick={() => openEditDialog(rp)} aria-label={`Modifier ${rp.entryName}`}>
-                <FileEdit className="h-4 w-4"/>
-            </Button>
-            <Button variant="ghost" size="icon" className="h-11 w-11 rounded-xl" onClick={() => handleDeregister(rp.id)} aria-label={`Désinscrire ${rp.entryName}`}>
-                <Trash2 className="h-4 w-4 text-destructive"/>
-            </Button>
-          </div>
+    <li ref={setNodeRef} style={style} className={cn("flex items-center gap-2 bg-card py-2 pl-1 pr-2", isDragging && "relative z-10 rounded-2xl shadow-lift")}>
+      <button type="button" className="flex h-11 w-9 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-muted-foreground/60 active:cursor-grabbing" aria-label={`Réordonner ${rp.entryName}`} {...attributes} {...listeners}>
+        <GripVertical className="h-5 w-5" />
+      </button>
+      <Bib>{rp.bibNumber}</Bib>
+      <div className="min-w-0 flex-1 pl-1">
+        <p className="truncate font-semibold">{rp.entryName}</p>
+        {crew.length > 0 && <p className="truncate text-[13px] text-muted-foreground">{crew.join(', ')}</p>}
       </div>
-    </Card>
+      <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground" onClick={() => openEditDialog(rp)} aria-label={`Modifier ${rp.entryName}`}>
+        <Pencil />
+      </Button>
+      <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => handleDeregister(rp.id)} aria-label={`Désinscrire ${rp.entryName}`}>
+        <Trash2 />
+      </Button>
+    </li>
   );
 }
 
@@ -197,10 +160,11 @@ export const HeatsAndParticipantsView = ({ regatta, sortedRegattaParticipants, a
   const isTeamMode = regatta.type === 'team' || regatta.type === 'mixed';
   const firestore = useFirestore();
   const [participantSearch, setParticipantSearch] = React.useState('');
+  const [tab, setTab] = React.useState(sortedRegattaParticipants.length ? 'heats' : 'participants');
   const matchingAvailableParticipants = React.useMemo(() => availableParticipantsForRegistration.filter((participant: Participant) => `${participantSearchText(participant)} ${participant.club} ${participant.sailType}`.toLocaleLowerCase('fr-FR').includes(participantSearch.trim().toLocaleLowerCase('fr-FR'))), [availableParticipantsForRegistration, participantSearch]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -208,11 +172,11 @@ export const HeatsAndParticipantsView = ({ regatta, sortedRegattaParticipants, a
 
   async function handleDragEnd(event: DragEndEvent) {
     const {active, over} = event;
-    
+
     if (active.id !== over?.id && over) {
       const oldIndex = sortedRegattaParticipants.findIndex((p: RegattaParticipant) => p.id === active.id);
       const newIndex = sortedRegattaParticipants.findIndex((p: RegattaParticipant) => p.id === over.id);
-      
+
       const newOrder = arrayMove(sortedRegattaParticipants, oldIndex, newIndex);
 
       const batch = writeBatch(firestore);
@@ -226,162 +190,151 @@ export const HeatsAndParticipantsView = ({ regatta, sortedRegattaParticipants, a
         await batch.commit();
       } catch (err) {
         console.error("Error reordering participants", err);
-        // Potentially show a toast to the user
       }
     }
   }
 
+  const heats: Heat[] = regatta?.heats ?? [];
+  const finishedCount = heats.filter(h => h.status === 'Finished').length;
+  const liveHeat = heats.find(h => h.status === 'In Progress');
+  const nextHeat = heats.find(h => h.status === 'Not Started');
+  const arrivedCount = (heat: Heat) => heat.results.filter(r => r.status === 'Finished' && (r.arrivalOrder != null || r.passage.finish || r.rank != null)).length;
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 p-4 pb-28 md:p-8">
-      <section className="flex items-center gap-3 rounded-2xl border bg-card p-3 sm:p-4">
-         <Button asChild variant="outline" size="icon" className="h-12 w-12 shrink-0 rounded-xl"><Link href="/" aria-label="Retour aux régates"><ArrowLeft className="h-5 w-5"/></Link></Button>
-         <div className="min-w-0 flex-1"><p className="text-xs font-semibold uppercase tracking-wide text-primary">Gestion de régate</p><h1 className="truncate text-xl font-bold sm:text-2xl">{regatta?.name}</h1><p className="text-sm text-muted-foreground">{sortedRegattaParticipants.length} inscrit{sortedRegattaParticipants.length === 1 ? '' : 's'} · {regatta.heats.length} manche{regatta.heats.length === 1 ? '' : 's'}</p></div>
-         <Button variant="outline" className="hidden h-11 shrink-0 sm:inline-flex" onClick={() => setCurrentView(View.ScoringSettings)}>Règles de score</Button>
+    <Page>
+      <DetailHeader
+        backHref="/regattas"
+        backLabel="Retour aux régates"
+        eyebrow="Gestion de régate"
+        title={regatta?.name}
+        meta={regatta?.date ? <span className="first-letter:uppercase">{new Date(`${regatta.date}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</span> : null}
+        actions={<Button variant="outline" size="icon" className="rounded-full" onClick={() => setCurrentView(View.ScoringSettings)} aria-label="Règles de score"><SlidersHorizontal /></Button>}
+      />
+
+      <section className="surface-ink rounded-[28px] p-5 shadow-lift sm:p-6">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <HeroStat value={sortedRegattaParticipants.length} label="Inscrits" />
+          <HeroStat value={heats.length} label="Manches" />
+          <HeroStat value={finishedCount} label="Validées" />
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {liveHeat ? (
+            <Button variant="signal" size="xl" className="col-span-2 sm:col-span-1" onClick={() => handleSelectHeat(liveHeat)}><LiveDot className="[&>span]:bg-white" />Continuer · {liveHeat.name}</Button>
+          ) : nextHeat ? (
+            <Button variant="signal" size="xl" className="col-span-2 sm:col-span-1" onClick={() => handleSelectHeat(nextHeat)}><PenLine className="!size-5" />Saisir · {nextHeat.name}</Button>
+          ) : (
+            <Button variant="signal" size="xl" className="col-span-2 sm:col-span-1" onClick={() => { handleAddHeat(); setTab('heats'); }}><Plus className="!size-5" />Nouvelle manche</Button>
+          )}
+          <Button size="xl" className="col-span-2 border border-white/15 bg-white/10 text-white shadow-none hover:bg-white/15 sm:col-span-1" onClick={() => setCurrentView(View.OverallResults)} disabled={finishedCount === 0}>
+            <Trophy className="!size-5" />Classement général
+          </Button>
+        </div>
       </section>
-       <Tabs defaultValue="participants" className="w-full">
-        <TabsList className="grid h-14 w-full grid-cols-2 rounded-xl p-1">
-          <TabsTrigger value="heats">Manches</TabsTrigger>
-          <TabsTrigger value="participants">Participants</TabsTrigger>
+
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="heats"><Flag />Manches <span className="tabular-nums text-muted-foreground">{heats.length}</span></TabsTrigger>
+          <TabsTrigger value="participants"><Users />Inscrits <span className="tabular-nums text-muted-foreground">{sortedRegattaParticipants.length}</span></TabsTrigger>
         </TabsList>
-        <TabsContent value="heats">
-           <div className="my-4 grid grid-cols-2 gap-3 md:grid-cols-3">
-             <Button className="h-12 rounded-xl" onClick={handleAddHeat}>
-              <Plus className="mr-2 h-4 w-4"/>Ajouter une manche
-            </Button>
-            <Button className="h-12 rounded-xl" variant="secondary" onClick={() => setCurrentView(View.OverallResults)} disabled={(regatta?.heats.filter((h: Heat) => h.status === 'Finished').length ?? 0) === 0}>
-              <Trophy className="h-4 w-4 mr-2"/>
-              Classement général
-            </Button>
-            <Button className="col-span-2 h-12 rounded-xl sm:col-span-1 md:hidden" variant="outline" onClick={() => setCurrentView(View.ScoringSettings)}>Règles de score</Button>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {regatta?.heats.map((heat: Heat) => (
-              <Card 
-                key={heat.id} 
-                className="rounded-2xl p-4"
-              >
-                 <CardHeader className="mb-2 p-0">
-                  <div className="flex items-center justify-between">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Flag className="h-5 w-5 text-muted-foreground"/>
-                      <CardTitle className="truncate text-lg">{heat.name}</CardTitle>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex items-center justify-between gap-3 p-0">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", heat.status === "In Progress" ? "bg-emerald-500" : heat.status === "Finished" ? "bg-blue-500" : "bg-muted-foreground/50")} />
-                    <p className="truncate text-sm text-muted-foreground">
-                      {heat.status === 'Not Started' ? 'En attente' : heat.status === 'In Progress' ? 'En cours' : 'Terminée'}
-                    </p>
-                  </div>
-                  <Button className="h-11 shrink-0 rounded-xl" variant={heat.status === 'In Progress' ? 'default' : 'outline'} onClick={() => handleSelectHeat(heat)}>{heat.status === 'Not Started' ? 'Saisir' : heat.status === 'In Progress' ? 'Continuer' : 'Résultats'}</Button>
-                </CardContent>
-              </Card>
-            ))}
-             {regatta?.heats.length === 0 && (
-              <p className="text-muted-foreground col-span-1 md:col-span-2 text-center mt-4">Aucune manche créée pour le moment.</p>
-            )}
-          </div>
+
+        <TabsContent value="heats" className="space-y-3">
+          {heats.length === 0 ? (
+            <EmptyState icon={Flag} title="Aucune manche" action={<Button size="lg" onClick={handleAddHeat}><Plus />Créer la première manche</Button>}>
+              {sortedRegattaParticipants.length ? 'Créez une manche, puis reportez la feuille d’arrivée ou suivez-la en direct.' : 'Inscrivez d’abord les participants, puis créez une manche.'}
+            </EmptyState>
+          ) : (
+            <>
+              <ul className="rise-stagger grid grid-cols-1 gap-3 md:grid-cols-2">
+                {heats.map((heat, index) => {
+                  const arrived = arrivedCount(heat);
+                  const total = heat.results.length || sortedRegattaParticipants.length;
+                  return (
+                    <li key={heat.id}>
+                      <button type="button" onClick={() => handleSelectHeat(heat)} className={cn("pressable flex w-full items-center gap-4 rounded-3xl border bg-card p-4 text-left shadow-soft hover:border-foreground/15 hover:shadow-lift", heat.status === 'In Progress' && "border-signal/40 ring-1 ring-signal/30")}>
+                        <span className={cn("flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl font-display leading-none", heat.status === 'Finished' ? "bg-success/12 text-success" : heat.status === 'In Progress' ? "bg-signal/12 text-signal" : "bg-muted text-foreground")}>
+                          <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">M</span>
+                          <span className="text-2xl font-extrabold tabular-nums">{index + 1}</span>
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-2"><span className="truncate font-display text-lg font-bold">{heat.name}</span></span>
+                          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1"><HeatStatusBadge status={heat.status} /><span className="whitespace-nowrap text-[13px] tabular-nums text-muted-foreground">{arrived}/{total} arrivés</span></span>
+                          <span className="mt-2.5 block h-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                            <span className={cn("block h-full rounded-full", heat.status === 'Finished' ? "bg-success" : "bg-signal")} style={{ width: `${total ? Math.round((arrived / total) * 100) : 0}%` }} />
+                          </span>
+                        </span>
+                        <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-primary">
+                          <span className="hidden sm:inline">{heat.status === 'Not Started' ? 'Saisir' : heat.status === 'In Progress' ? 'Continuer' : 'Résultats'}</span>
+                          <ChevronRight className="h-4 w-4" />
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              <Button variant="outline" size="lg" className="w-full border-dashed" onClick={handleAddHeat}><Plus />Ajouter une manche</Button>
+            </>
+          )}
         </TabsContent>
-        <TabsContent value="participants">
-           <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-              <div>
-                <Card className="rounded-2xl">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Users className="h-5 w-5"/>
-                      Inscrits · {sortedRegattaParticipants?.length ?? 0}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Button onClick={() => startRegistration()} className="mb-4 h-12 w-full rounded-xl">
-                        <UserPlus className="mr-2 h-4 w-4"/> {isTeamMode ? 'Inscrire une équipe' : 'Inscrire un coureur'}
-                    </Button>
-                    <div className="pr-1">
-                      <DndContext 
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragEnd={handleDragEnd}
-                      >
-                        <SortableContext 
-                          items={sortedRegattaParticipants.map((p:RegattaParticipant) => p.id)}
-                          strategy={verticalListSortingStrategy}
-                        >
-                           <div className="space-y-2">
-                            {sortedRegattaParticipants.map((rp: RegattaParticipant) => (
-                              <SortableParticipantItem 
-                                key={rp.id} 
-                                id={rp.id}
-                                rp={rp}
-                                getParticipantName={getParticipantName}
-                                openEditDialog={openEditDialog}
-                                handleDeregister={handleDeregister}
-                              />
-                            ))}
-                          </div>
-                        </SortableContext>
-                      </DndContext>
-                         {sortedRegattaParticipants.length === 0 && (
-                            <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-                              Inscrivez les participants avant d’ajouter une manche.
-                            </div>
-                         )}
+
+        <TabsContent value="participants" className="space-y-8">
+          <section className="space-y-3">
+            <SectionHeader
+              title="Inscrits"
+              description={sortedRegattaParticipants.length ? 'Glissez la poignée pour réattribuer les dossards.' : undefined}
+              action={<Button onClick={() => startRegistration()}><UserPlus />{isTeamMode ? 'Équipe' : 'Inscrire'}</Button>}
+            />
+            {sortedRegattaParticipants.length === 0 ? (
+              <EmptyState icon={Users} title="Personne d’inscrit" action={<Button size="lg" onClick={() => startRegistration()}><UserPlus />{isTeamMode ? 'Inscrire une équipe' : 'Inscrire un coureur'}</Button>}>
+                Saisissez le dossard remis, puis retrouvez le coureur ou créez sa fiche.
+              </EmptyState>
+            ) : (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={sortedRegattaParticipants.map((p: RegattaParticipant) => p.id)} strategy={verticalListSortingStrategy}>
+                  <ul className="divide-y rounded-3xl border bg-card shadow-soft [&>li:first-child]:rounded-t-3xl [&>li:last-child]:rounded-b-3xl">
+                    {sortedRegattaParticipants.map((rp: RegattaParticipant) => (
+                      <SortableParticipantItem
+                        key={rp.id}
+                        rp={rp}
+                        getParticipantName={getParticipantName}
+                        openEditDialog={openEditDialog}
+                        handleDeregister={handleDeregister}
+                      />
+                    ))}
+                  </ul>
+                </SortableContext>
+              </DndContext>
+            )}
+          </section>
+
+          <section className="space-y-3">
+            <SectionHeader title="Coureurs de l’annuaire" description={`${availableParticipantsForRegistration?.length ?? 0} pas encore inscrits`} />
+            <div className="relative"><Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"/><Input type="search" enterKeyHint="search" className="rounded-2xl pl-11 shadow-soft" placeholder="Rechercher un coureur ou un club" value={participantSearch} onChange={event => setParticipantSearch(event.target.value)} /></div>
+            {matchingAvailableParticipants.length === 0 ? (
+              <p className="rounded-3xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                {availableParticipantsForRegistration.length === 0 ? 'Tous les coureurs de l’annuaire sont inscrits.' : 'Aucun coureur ne correspond à la recherche.'}
+              </p>
+            ) : (
+              <ul className="divide-y overflow-hidden rounded-3xl border bg-card shadow-soft">
+                {matchingAvailableParticipants.slice(0, 40).map((p: Participant) => (
+                  <li key={p.id} className="flex min-h-[64px] items-center gap-3 px-4 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold">{participantDisplayName(p)}</p>
+                      <p className="truncate text-[13px] text-muted-foreground">{p.club} · {p.sailType === 'Dinghy' ? 'Dériveur' : p.sailType}</p>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-              
-              <div>
-                 <Card className="rounded-2xl">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Users className="h-5 w-5"/>
-                      Coureurs déjà connus · {availableParticipantsForRegistration?.length ?? 0}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {!isTeamMode && <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
-                        <p className="text-sm text-muted-foreground">Nouveau nom sur la feuille ? Crée sa fiche et inscris-le ici, sans quitter la régate.</p>
-                        <Button className="mt-3 h-12 w-full rounded-xl" onClick={() => startRegistration()}>
-                          <UserPlus className="mr-2 h-4 w-4"/> Nouveau concurrent + dossard
-                        </Button>
-                      </div>}
-                      <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"/><Input className="h-12 rounded-xl pl-10" placeholder="Rechercher un coureur ou un club" value={participantSearch} onChange={event => setParticipantSearch(event.target.value)} /></div>
-                      <div className="space-y-2">
-                        {matchingAvailableParticipants.map((p: Participant) => (
-                          <Card key={p.id} className="rounded-xl p-3">
-                            <div className="flex justify-between items-center">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-semibold truncate">{participantDisplayName(p)}</p>
-                                <p className="text-xs text-muted-foreground truncate">{p.club} - {p.sailType}</p>
-                              </div>
-                              {!isTeamMode && (
-                                <Button size="sm" className="h-11 rounded-xl" variant="outline" onClick={() => handleQuickRegister(p)}>
-                                  <Plus className="mr-2 h-4 w-4"/>
-                                  Inscrire
-                                </Button>
-                              )}
-                            </div>
-                          </Card>
-                        ))}
-                         {matchingAvailableParticipants.length === 0 && (
-                            <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                              {availableParticipantsForRegistration.length === 0 ? 'Tous les coureurs sont inscrits.' : 'Aucun coureur ne correspond à la recherche.'}
-                            </div>
-                         )}
-                      </div>
-                    </div>
-                  </CardContent>
-                 </Card>
-              </div>
-           </div>
+                    {!isTeamMode && (
+                      <Button size="sm" variant="secondary" className="h-10 rounded-full px-4" onClick={() => handleQuickRegister(p)}>
+                        <Plus />Inscrire
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {matchingAvailableParticipants.length > 40 && <p className="text-center text-xs text-muted-foreground">Affinez la recherche pour voir les {matchingAvailableParticipants.length - 40} autres.</p>}
+          </section>
         </TabsContent>
       </Tabs>
-    </main>
+    </Page>
   );
 }
 
@@ -402,192 +355,211 @@ type HeatDetailProps = {
   formatTime: (seconds: number) => string;
 };
 
+/** Panneau de départ : compte à rebours lisible de loin, lancement au pouce. */
+function StartPanel({ activeHeat, isTimerActive, timeLeft, selectedDuration, setSelectedDuration, handleStartSequence, handleResetTimer, formatTime }: Pick<HeatDetailProps, 'isTimerActive' | 'timeLeft' | 'selectedDuration' | 'setSelectedDuration' | 'handleStartSequence' | 'handleResetTimer' | 'formatTime'> & { activeHeat: Heat }) {
+  const started = activeHeat.status === 'In Progress';
+  const elapsed = useElapsed(started ? activeHeat.startTime : null);
+  return (
+    <div className="surface-ink flex items-center gap-3 rounded-2xl px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white/60">
+          {started ? <><LiveDot />Départ donné</> : isTimerActive ? 'Séquence de départ' : 'Avant le départ'}
+        </p>
+        <p className={cn("font-display text-4xl font-extrabold leading-none tabular-nums", isTimerActive && timeLeft <= 10 && "text-signal")}>
+          {started ? elapsed : formatTime(timeLeft)}
+        </p>
+      </div>
+      {activeHeat.status === 'Not Started' && <>
+        <Select onValueChange={setSelectedDuration} value={selectedDuration} disabled={isTimerActive}>
+          <SelectTrigger className="h-12 w-[5.5rem] border-white/15 bg-white/10 text-white focus:ring-white/20" aria-label="Durée de la séquence"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="0">Immédiat</SelectItem><SelectItem value="30">30 s</SelectItem><SelectItem value="60">1 min</SelectItem><SelectItem value="180">3 min</SelectItem><SelectItem value="300">5 min</SelectItem></SelectContent>
+        </Select>
+        <Button size="lg" variant={isTimerActive ? 'outline' : 'signal'} className={cn("h-12", isTimerActive && "border-white/20 bg-transparent text-white hover:bg-white/10")} onClick={isTimerActive ? handleResetTimer : handleStartSequence}>
+          {isTimerActive ? 'Annuler' : <><Play className="fill-current" />Départ</>}
+        </Button>
+      </>}
+    </div>
+  );
+}
+
+function useElapsed(start: number | null) {
+  const [now, setNow] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    if (!start) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [start]);
+  if (!start) return '00:00';
+  const seconds = Math.max(0, Math.floor((now - start) / 1000));
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${h ? `${h}:` : ''}${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
 export const HeatDetailView = ({ activeHeat, regattaParticipants, isTimerActive, timeLeft, selectedDuration, setSelectedDuration, handleStartSequence, handleResetTimer, validateArrivalRows, persistArrivalRows, entryMode, setEntryMode, setCurrentView, formatTime }: HeatDetailProps) => activeHeat ? (
   <ArrivalEntry key={activeHeat.id} heat={activeHeat} participants={regattaParticipants} mode={entryMode} onMode={setEntryMode}
     onSave={persistArrivalRows} onBack={() => setCurrentView(View.HeatsList)} onResults={() => setCurrentView(View.HeatResults)} onValidate={validateArrivalRows}
-    timer={<div className="flex flex-wrap items-center gap-2">
-      <span className="mr-auto font-mono text-2xl font-bold tabular-nums">{activeHeat.status === 'In Progress' ? 'Départ donné' : formatTime(timeLeft)}</span>
-      {activeHeat.status === 'Not Started' && <><Select onValueChange={setSelectedDuration} value={selectedDuration} disabled={isTimerActive}><SelectTrigger className="h-11 w-28"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">Immédiat</SelectItem><SelectItem value="30">30 s</SelectItem><SelectItem value="60">1 min</SelectItem><SelectItem value="180">3 min</SelectItem><SelectItem value="300">5 min</SelectItem></SelectContent></Select><Button className="h-11" onClick={isTimerActive ? handleResetTimer : handleStartSequence}>{isTimerActive ? 'Annuler' : 'Départ'}</Button></>}
-    </div>}
+    timer={<StartPanel activeHeat={activeHeat} isTimerActive={isTimerActive} timeLeft={timeLeft} selectedDuration={selectedDuration} setSelectedDuration={setSelectedDuration} handleStartSequence={handleStartSequence} handleResetTimer={handleResetTimer} formatTime={formatTime} />}
   />
 ) : null;
+
+/** Podium : 2 · 1 · 3, la marche du vainqueur au centre. */
+function Podium({ entries }: { entries: { key: string; name: string; bib?: string; value: React.ReactNode; rank: number }[] }) {
+  if (entries.length === 0) return null;
+  const order = [entries[1], entries[0], entries[2]].filter(Boolean);
+  const height: Record<number, string> = { 1: 'h-24', 2: 'h-16', 3: 'h-12' };
+  return (
+    <section className="surface-ink rounded-[28px] px-4 pb-0 pt-6 shadow-lift sm:px-8">
+      <div className="mx-auto grid max-w-lg grid-cols-3 items-end gap-2 sm:gap-4">
+        {order.map(entry => (
+          <div key={entry.key} className={cn("flex min-w-0 flex-col items-center text-center", entry.rank === 1 ? "order-2" : entry.rank === 2 ? "order-1" : "order-3")}>
+            <RankBadge rank={entry.rank} className={entry.rank === 1 ? "h-12 w-12 text-lg" : ""} />
+            <p className="mt-2 w-full truncate text-sm font-bold">{entry.name}</p>
+            {entry.bib && <p className="text-xs text-white/60">Dossard {entry.bib}</p>}
+            <p className="mb-2 mt-1 font-display text-lg font-extrabold tabular-nums text-signal">{entry.value}</p>
+            <div className={cn("w-full rounded-t-2xl bg-white/[0.08] ring-1 ring-inset ring-white/10", height[entry.rank])} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export const HeatResultsView = ({ activeHeat, regattaParticipants, setCurrentView, getParticipantName }: any) => {
   const sortedResults = React.useMemo(() => {
     if (!activeHeat?.results) return [];
     return [...activeHeat.results].sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity));
   }, [activeHeat]);
+  const find = (id: string) => regattaParticipants?.find((p: RegattaParticipant) => p.id === id);
+  const podium = sortedResults.filter((r: CompetitorRaceResult) => r.rank != null && r.rank <= 3).map((r: CompetitorRaceResult) => {
+    const rp = find(r.regattaParticipantId);
+    return { key: r.regattaParticipantId, name: rp?.entryName ?? '?', bib: rp?.bibNumber, value: `${r.points} pt${(r.points ?? 0) > 1 ? 's' : ''}`, rank: r.rank as number };
+  });
 
   return (
-    <main className="flex flex-1 flex-col p-4 md:p-6">
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => setCurrentView(View.HeatDetail)}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-xl font-bold">Résultats - {activeHeat?.name}</h1>
-      </div>
-      {activeHeat?.status === 'Finished' && <Button className="mb-4 h-12 self-end" variant="outline" onClick={() => setCurrentView(View.HeatDetail)}>Corriger les arrivées</Button>}
-      <Card>
-        <CardHeader>
-          <CardTitle>Classement de la Manche</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 p-3 sm:p-6">
-          <ol className="space-y-2 md:hidden">
-            {sortedResults.map((result: CompetitorRaceResult, index: number) => {
-              const rp = regattaParticipants?.find((p: RegattaParticipant) => p.id === result.regattaParticipantId);
-              if (!rp) return null;
-              return <li key={result.regattaParticipantId} className="flex items-center gap-3 rounded-xl border p-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 font-bold text-primary">{result.rank ?? index + 1}</span>
-                <div className="min-w-0 flex-1"><p className="truncate font-semibold">{rp.entryName}</p><p className="text-sm text-muted-foreground">Dossard {rp.bibNumber} · {result.status}</p></div>
-                <div className="text-right"><p className="text-lg font-bold tabular-nums">{result.points}</p><p className="text-xs text-muted-foreground">points</p></div>
-              </li>;
-            })}
-          </ol>
-          <div className="hidden overflow-x-auto md:block">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[50px]">Rang</TableHead>
-                <TableHead>Équipage</TableHead>
-                <TableHead>Dossard</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="text-right">Points</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedResults.map((result: CompetitorRaceResult) => {
-                const rp = regattaParticipants?.find((p: RegattaParticipant) => p.id === result.regattaParticipantId);
-                if (!rp) return null;
-                return (
-                  <TableRow key={result.regattaParticipantId}>
-                    <TableCell className="font-bold">{result.rank || '-'}</TableCell>
-                    <TableCell>
-                      <p className="font-medium">{rp.entryName}</p>
-                      {rp.crewIds && rp.crewIds.length > 0 && (
-                        <p className="text-xs text-muted-foreground">{rp.crewIds.map(getParticipantName).join(', ')}</p>
-                      )}
-                    </TableCell>
-                    <TableCell>{rp.bibNumber}</TableCell>
-                    <TableCell>
-                      <Badge variant={result.status === 'Finished' ? 'default' : 'destructive'} >{result.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">{result.points}</TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-          </div>
-        </CardContent>
-      </Card>
-    </main>
+    <Page width="narrow">
+      <DetailHeader
+        onBack={() => setCurrentView(View.HeatsList)}
+        backLabel="Retour aux manches"
+        eyebrow="Résultats de manche"
+        title={activeHeat?.name}
+        actions={activeHeat?.status === 'Finished' && <Button variant="outline" onClick={() => setCurrentView(View.HeatDetail)}><Pencil />Corriger</Button>}
+      />
+      <Podium entries={podium} />
+      <ol className="divide-y overflow-hidden rounded-3xl border bg-card shadow-soft">
+        {sortedResults.map((result: CompetitorRaceResult) => {
+          const rp = find(result.regattaParticipantId);
+          if (!rp) return null;
+          const crew = (rp.crewIds ?? []).map(getParticipantName).filter((name: string) => name !== 'N/A' && name !== rp.entryName);
+          return <li key={result.regattaParticipantId} className="flex min-h-[68px] items-center gap-3 px-4 py-2">
+            <RankBadge rank={result.rank} />
+            <Bib className="h-9 min-w-10 text-base">{rp.bibNumber}</Bib>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold">{rp.entryName}</p>
+              <p className="truncate text-[13px] text-muted-foreground">
+                {result.status !== 'Finished' ? <span className="font-semibold text-destructive">{statusLabel[result.status as CompetitorRaceResult['status']]}</span> : result.passage?.finish ? <span className="tabular-nums">{result.passage.finish}</span> : 'Arrivé'}
+                {crew.length > 0 && ` · ${crew.join(', ')}`}
+              </p>
+            </div>
+            <div className="text-right"><p className="font-display text-xl font-extrabold tabular-nums">{result.points}</p><p className="text-[11px] text-muted-foreground">pts</p></div>
+          </li>;
+        })}
+      </ol>
+    </Page>
   );
 }
 
 export const OverallResultsView = ({ regatta, finishedHeats, selectedSailType, setSelectedSailType, selectedCategory, setSelectedCategory, numDiscards, setNumDiscards, discards, setDiscards, calculateOverallResults, handleExportCSV, setCurrentView }: any) => {
-  const overallResults = calculateOverallResults(selectedSailType, selectedCategory);
-  
-  return (
-    <main className="flex flex-1 flex-col p-4 md:p-6">
-      <div className="flex items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => setCurrentView(View.HeatsList)}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-lg font-bold sm:text-xl">Classement général · {regatta?.name}</h1>
-        </div>
-         <Button variant="outline" className="h-11 shrink-0" onClick={handleExportCSV} disabled={overallResults.length === 0}>
-          <FileDown className="h-4 w-4 mr-2" />
-          Exporter en CSV
-        </Button>
-      </div>
-      <Card className="mb-4 rounded-2xl">
-        <CardHeader>
-            <CardTitle className="text-lg">Manches à retirer</CardTitle>
-            <CardDescription>Le nombre de retraits défini dans les règles de score.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex items-center gap-4">
-           <Label htmlFor="discards-input" className="whitespace-nowrap text-sm text-muted-foreground">Manches à retirer :</Label>
-            <NumberStepper 
-              id="discards-input"
-              className="gap-2"
-              value={numDiscards}
-              onChange={setNumDiscards}
-              min={0}
-              max={finishedHeats.length > 0 ? finishedHeats.length -1 : 0}
-            />
-            <Button className="h-11" onClick={() => setDiscards(numDiscards)}>
-              <Calculator className="h-4 w-4 mr-2" />
-              Appliquer
-            </Button>
-        </CardContent>
-      </Card>
+  const overallResults: OverallResult[] = calculateOverallResults(selectedSailType, selectedCategory);
+  const categories = ['Général', 'Jeune', 'Confirmé', 'Vétéran', 'Catamaran', 'Dériveur'];
+  const podium = overallResults.slice(0, 3).map((result, index) => ({ key: result.participantId, name: result.entryName, value: `${result.totalPoints} pt${result.totalPoints > 1 ? "s" : ""}`, rank: index + 1 }));
+  const crewOf = (result: OverallResult) => result.crewNames.filter(name => name !== result.entryName);
 
-      <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2"><Label className="text-sm font-semibold">Support</Label><Tabs value={selectedSailType} onValueChange={(value) => setSelectedSailType(value as any)} className="w-full"><TabsList className="grid h-12 w-full grid-cols-3 rounded-xl"><TabsTrigger value="Général">Tous</TabsTrigger><TabsTrigger value="Windsurf">Windsurf</TabsTrigger><TabsTrigger value="Wingfoil">Wingfoil</TabsTrigger></TabsList></Tabs></div>
-          <div className="space-y-2"><Label htmlFor="overall-category" className="text-sm font-semibold">Catégorie</Label><Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as any)}><SelectTrigger id="overall-category" className="h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Général">Toutes les catégories</SelectItem><SelectItem value="Jeune">Jeune</SelectItem><SelectItem value="Confirmé">Confirmé</SelectItem><SelectItem value="Vétéran">Vétéran</SelectItem><SelectItem value="Catamaran">Catamaran</SelectItem><SelectItem value="Dériveur">Dériveur</SelectItem></SelectContent></Select></div>
-      </div>
-      
-         <Card className="mt-4 rounded-2xl">
-          <CardHeader>
-            <CardTitle>
-              Classement {selectedSailType !== 'Général' ? selectedSailType : ''} {selectedCategory !== 'Général' ? selectedCategory : 'Général'}
-              ({discards > 0 ? `après ${discards} discard(s)` : 'sans discard'})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-6">
-            <ol className="space-y-2 md:hidden">
-              {overallResults.length ? overallResults.map((result: OverallResult, index: number) => <li key={result.participantId} className="rounded-xl border p-3">
-                <div className="flex items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 font-bold text-primary">{index + 1}</span><div className="min-w-0 flex-1"><p className="truncate font-semibold">{result.entryName}</p>{result.crewNames.length > 0 && <p className="truncate text-xs text-muted-foreground">{result.crewNames.join(', ')}</p>}</div><div className="text-right"><p className="text-lg font-extrabold tabular-nums">{result.totalPoints}</p><p className="text-xs text-muted-foreground">points</p></div></div>
-                <div className="mt-3 flex flex-wrap gap-1.5">{result.scores.map((score, scoreIndex) => <span key={score.heatId} className={cn('rounded-lg bg-muted px-2 py-1 text-xs tabular-nums', score.isDiscarded && 'text-muted-foreground line-through opacity-60')}>{finishedHeats[scoreIndex]?.name}: {score.rank}</span>)}</div>
-              </li>) : <li className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">Aucun résultat dans cette sélection.</li>}
-            </ol>
-            <div className="hidden overflow-x-auto md:block">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Rang</TableHead>
-                    <TableHead>Nom</TableHead>
-                    {finishedHeats.map((h: Heat) => (
-                      <TableHead key={h.id} className="text-center">{h.name}</TableHead>
+  return (
+    <Page>
+      <DetailHeader
+        onBack={() => setCurrentView(View.HeatsList)}
+        backLabel="Retour à la régate"
+        eyebrow="Classement général"
+        title={regatta?.name}
+        meta={<span>{finishedHeats.length} manche{finishedHeats.length > 1 ? 's' : ''} validée{finishedHeats.length > 1 ? 's' : ''}{discards > 0 ? ` · ${discards} retrait${discards > 1 ? 's' : ''}` : ''}</span>}
+        actions={<Button variant="outline" onClick={handleExportCSV} disabled={overallResults.length === 0}><FileDown /><span className="hidden sm:inline">Exporter</span> CSV</Button>}
+      />
+
+      <section className="space-y-3">
+        <Tabs value={selectedSailType} onValueChange={(value) => setSelectedSailType(value as any)}>
+          <TabsList className="grid w-full grid-cols-3"><TabsTrigger value="Général">Tous</TabsTrigger><TabsTrigger value="Windsurf">Windsurf</TabsTrigger><TabsTrigger value="Wingfoil">Wingfoil</TabsTrigger></TabsList>
+        </Tabs>
+        <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:px-0" role="radiogroup" aria-label="Catégorie">
+          {categories.map(category => {
+            const active = selectedCategory === category;
+            return <button key={category} type="button" role="radio" aria-checked={active} onClick={() => setSelectedCategory(category as any)} className={cn("press-feedback h-10 shrink-0 rounded-full border px-4 text-sm font-semibold", active ? "border-ink bg-ink text-ink-foreground" : "bg-card text-muted-foreground hover:text-foreground")}>
+              {category === 'Général' ? 'Toutes catégories' : category}
+            </button>;
+          })}
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-3xl border bg-card p-3 pl-4 shadow-soft">
+          <Label htmlFor="discards-input" className="text-sm">Manches retirées</Label>
+          <div className="flex items-center gap-2">
+            <NumberStepper id="discards-input" value={numDiscards} onChange={setNumDiscards} min={0} max={finishedHeats.length > 0 ? finishedHeats.length - 1 : 0} />
+            <Button onClick={() => setDiscards(numDiscards)} disabled={numDiscards === discards}>Appliquer</Button>
+          </div>
+        </div>
+      </section>
+
+      {overallResults.length === 0 ? (
+        <EmptyState icon={Trophy} title="Aucun résultat">Personne dans cette sélection pour le moment.</EmptyState>
+      ) : (
+        <>
+          <Podium entries={podium} />
+
+          <ol className="divide-y overflow-hidden rounded-3xl border bg-card shadow-soft md:hidden">
+            {overallResults.map((result, index) => <li key={result.participantId} className="px-4 py-3">
+              <div className="flex items-center gap-3">
+                <RankBadge rank={index + 1} />
+                <div className="min-w-0 flex-1"><p className="truncate font-semibold">{result.entryName}</p>{crewOf(result).length > 0 && <p className="truncate text-[13px] text-muted-foreground">{crewOf(result).join(', ')}</p>}</div>
+                <div className="text-right"><p className="font-display text-xl font-extrabold tabular-nums">{result.totalPoints}</p><p className="text-[11px] text-muted-foreground">pts</p></div>
+              </div>
+              <div className="no-scrollbar mt-2.5 flex gap-1.5 overflow-x-auto pl-[52px]">
+                {result.scores.map((score, scoreIndex) => <span key={score.heatId} className={cn('shrink-0 rounded-lg bg-muted px-2 py-1 text-xs font-medium tabular-nums', score.isDiscarded && 'text-muted-foreground line-through opacity-60')}>
+                  <span className="text-muted-foreground">M{scoreIndex + 1}</span> {score.rank}
+                </span>)}
+              </div>
+            </li>)}
+          </ol>
+
+          <div className="hidden overflow-hidden rounded-3xl border bg-card shadow-soft md:block">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-16 pl-5">Rang</TableHead>
+                  <TableHead>Nom</TableHead>
+                  {finishedHeats.map((h: Heat, i: number) => (
+                    <TableHead key={h.id} className="text-center" title={h.name}>M{i + 1}</TableHead>
+                  ))}
+                  <TableHead className="pr-5 text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {overallResults.map((result, index) => (
+                  <TableRow key={result.participantId}>
+                    <TableCell className="pl-5"><RankBadge rank={index + 1} className="h-9 w-9 text-sm" /></TableCell>
+                    <TableCell>
+                      <p className="font-semibold">{result.entryName}</p>
+                      {crewOf(result).length > 0 && <p className="text-xs text-muted-foreground">{crewOf(result).join(', ')}</p>}
+                    </TableCell>
+                    {result.scores.map((score, i) => (
+                      <TableCell key={i} className={cn("text-center tabular-nums", score.isDiscarded && "text-muted-foreground line-through")}>{score.rank}</TableCell>
                     ))}
-                    <TableHead className="text-right">Total Points</TableHead>
+                    <TableCell className="pr-5 text-right font-display text-lg font-extrabold tabular-nums">{result.totalPoints}</TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {overallResults.length > 0 ? overallResults.map((result: OverallResult, index: number) => {
-                    return (
-                      <TableRow key={result.participantId}>
-                        <TableCell className="font-bold">{index + 1}</TableCell>
-                        <TableCell>
-                          <p className="font-medium">{result.entryName}</p>
-                          {result.crewNames.length > 0 && (
-                            <p className="text-xs text-muted-foreground">{result.crewNames.join(', ')}</p>
-                          )}
-                        </TableCell>
-                         {result.scores.map((score, i) => (
-                          <TableCell key={i} className={cn("text-center", score.isDiscarded && "text-muted-foreground line-through")}>
-                            {score.rank}
-                          </TableCell>
-                        ))}
-                        <TableCell className="text-right font-bold">{result.totalPoints}</TableCell>
-                      </TableRow>
-                    )
-                  }) : (
-                    <TableRow>
-                      <TableCell colSpan={3 + (finishedHeats.length || 0)} className="text-center text-muted-foreground">
-                        Aucun coureur dans cette sélection.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-    </main>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
+      )}
+    </Page>
   );
 }
-
-
-    

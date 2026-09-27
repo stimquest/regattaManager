@@ -1,20 +1,13 @@
-
-import type {NextConfig} from 'next';
-
-const withPWA = require('next-pwa')({
-  dest: 'public',
-  register: true,
-  skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development',
-})
+import type { NextConfig } from 'next';
+import { withSerwist } from '@serwist/turbopack';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // L'ancien tableau de bord mélangeait les activités : l'accueil propose désormais de choisir.
+  async redirects() {
+    return [{ source: '/dashboard', destination: '/', permanent: false }];
+  },
   typescript: {
     ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
   },
   images: {
     remotePatterns: [
@@ -40,4 +33,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withPWA(nextConfig);
+export default withSerwist(nextConfig);

@@ -1,8 +1,14 @@
 {
-  "name": "Gestionnaire de Régate de Windsurf",
-  "short_name": "Régate Windsurf",
-  "description": "Gérez vos régates de windsurf facilement, de l'inscription des participants aux résultats en temps réel.",
+  "name": "Régate · Comité de course",
+  "short_name": "Régate",
+  "description": "Inscriptions, arrivées et classements de vos régates, même sans réseau sur l’eau.",
   "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
     {
       "src": "/icons/icon-192x192.png",
       "sizes": "192x192",
@@ -14,9 +20,13 @@
       "type": "image/png"
     }
   ],
-  "theme_color": "#0A192F",
-  "background_color": "#0A192F",
+  "theme_color": "#F8F7F4",
+  "background_color": "#F8F7F4",
   "start_url": "/",
+  "shortcuts": [
+    { "name": "Régates", "short_name": "Régates", "url": "/regattas", "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "Char à voile", "short_name": "Char à voile", "url": "/land-yachting", "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
+  ],
   "display": "standalone",
   "orientation": "portrait"
 }

@@ -55,7 +55,9 @@ import {
   UserPlus,
   FileEdit,
   Trash2,
-  GripVertical
+  GripVertical,
+  Search,
+  ChevronRight,
 } from "lucide-react";
 import {
   Table,
@@ -70,7 +72,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Popover,
@@ -92,6 +94,7 @@ import { useFirestore, useDoc, useCollection } from "@/firebase";
 import { emitFirestoreError } from "@/firebase/errors";
 import { NumberStepper } from "@/components/ui/number-stepper";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Page, DetailHeader, EmptyState, PageLoader } from "@/components/layout/page";
 
 import { View, HeatsAndParticipantsView, HeatDetailView, HeatResultsView, OverallResultsView, ScoringSettingsView, type OverallResult } from './views';
 
@@ -727,21 +730,17 @@ export default function RaceManagementPage() {
 
 
   if (loadingRegatta || loadingAllParticipants || loadingRegattaParticipants) {
-    return (
-       <main className="flex min-h-[calc(100vh-theme(spacing.14))] flex-1 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </main>
-    )
+    return <PageLoader label="Chargement de la régate…" />;
   }
 
   if (!regatta) {
     return (
-      <main className="flex flex-1 flex-col p-4 md:p-6 items-center justify-center">
-          <p className="text-muted-foreground">Régate non trouvée.</p>
-          <Link href="/" passHref>
-            <Button variant="link">Retour à l'accueil</Button>
-          </Link>
-      </main>
+      <Page width="narrow">
+        <DetailHeader backHref="/regattas" backLabel="Retour aux régates" title="Régate introuvable" />
+        <EmptyState icon={Flag} title="Cette régate n’existe plus" action={<Button asChild size="lg"><Link href="/regattas">Toutes les régates</Link></Button>}>
+          Elle a peut-être été supprimée depuis un autre appareil.
+        </EmptyState>
+      </Page>
     );
   }
 
@@ -811,73 +810,84 @@ export default function RaceManagementPage() {
   }
   
   const otherParticipantForSwap = swapInfo && regattaParticipants?.find(p => p.bibNumber === swapInfo.newBib);
+  const fastMode = regatta?.type === 'individual' && !editingRegattaParticipant;
+  const bibTaken = fastMode && !!selectedBibNumber.trim() && regattaParticipants?.some(entry => entry.bibNumber === String(Number(selectedBibNumber.trim())));
 
   return (
     <>
       {renderContent()}
        <Dialog open={isRegisterDialogOpen} onOpenChange={closeRegisterDialog}>
-        <DialogContent className="max-h-[calc(100dvh-1rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl p-4 sm:max-h-[90dvh] sm:overflow-y-auto sm:p-6">
+        <DialogContent className="sm:max-w-xl">
             <DialogHeader>
-                <DialogTitle>{editingRegattaParticipant ? "Modifier l'inscription" : regatta?.type === 'individual' ? "Inscrire un coureur" : "Inscrire une équipe"}</DialogTitle>
+                <DialogTitle>{editingRegattaParticipant ? "Modifier l’inscription" : regatta?.type === 'individual' ? "Inscrire un coureur" : "Inscrire une équipe"}</DialogTitle>
+                {fastMode && <DialogDescription>Saisissez le dossard remis, puis retrouvez le coureur ou créez sa fiche.</DialogDescription>}
             </DialogHeader>
-            {regatta?.type === 'individual' && !editingRegattaParticipant ? (
-              <div className="min-h-0 min-w-0 space-y-5 overflow-y-auto overscroll-contain py-2">
-                <p className="text-sm text-muted-foreground">Le dossard a déjà été remis : saisis son numéro, puis retrouve le coureur ou crée sa fiche.</p>
-                <div className="space-y-2">
-                  <Label htmlFor="assignedBib">Dossard remis</Label>
-                  <Input id="assignedBib" autoFocus inputMode="numeric" type="number" min="1" max={MAX_BIBS} className="h-14 text-xl font-bold tabular-nums" placeholder="Ex. 24" value={selectedBibNumber} onChange={event => setSelectedBibNumber(event.target.value)} />
-                </div>
+            {fastMode ? (
+              <div className="min-w-0 space-y-5">
+                <label htmlFor="assignedBib" className="relative block">
+                  <span className="pointer-events-none absolute left-4 top-2 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Dossard remis</span>
+                  <Input id="assignedBib" autoFocus inputMode="numeric" type="number" min="1" max={MAX_BIBS} className={cn("h-16 rounded-2xl pb-1 pt-5 font-display text-3xl font-extrabold tabular-nums placeholder:text-muted-foreground/40", bibTaken && "border-destructive focus-visible:border-destructive focus-visible:ring-destructive/15")} placeholder="—" value={selectedBibNumber} onChange={event => setSelectedBibNumber(event.target.value)} />
+                  {bibTaken && <span className="mt-1.5 block text-sm font-medium text-destructive">Ce dossard est déjà attribué.</span>}
+                </label>
                 {!isCreatingParticipant ? (
                   <div className="min-w-0 space-y-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="registrationSearch">Retrouver le coureur</Label>
-                      <Input id="registrationSearch" autoComplete="off" className="h-12" placeholder="Nom, club ou licence" value={registrationSearch} onChange={event => { setRegistrationSearch(event.target.value); setFastSelectedParticipantId(''); }} />
-                    </div>
                     {fastSelectedParticipantId ? (
-                      <div className="flex items-center justify-between gap-3 rounded-xl border border-primary bg-primary/5 p-3">
-                        <div className="min-w-0"><p className="font-semibold">{fastSelectedParticipant ? participantDisplayName(fastSelectedParticipant) : ''}</p><p className="text-sm text-muted-foreground">{fastSelectedParticipant?.club}</p></div>
-                        <Button type="button" variant="ghost" onClick={() => setFastSelectedParticipantId('')}>Changer</Button>
+                      <div className="flex items-center gap-3 rounded-2xl border-2 border-primary bg-primary/[0.05] p-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"><CheckCircle className="h-5 w-5" /></span>
+                        <div className="min-w-0 flex-1"><p className="truncate font-semibold">{fastSelectedParticipant ? participantDisplayName(fastSelectedParticipant) : ''}</p><p className="truncate text-sm text-muted-foreground">{fastSelectedParticipant?.club}</p></div>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => { setFastSelectedParticipantId(''); setRegistrationSearch(''); }}>Changer</Button>
                       </div>
                     ) : (
-                      <div className="max-h-52 min-w-0 space-y-2 overflow-x-hidden overflow-y-auto">
-                        {matchingRegistrationParticipants.map(person => (
-                          <button type="button" key={person.id} disabled={registeredParticipantIds.has(person.id)} onClick={() => { setFastSelectedParticipantId(person.id); setRegistrationSearch(participantDisplayName(person)); }} className="flex min-h-14 w-full min-w-0 items-center justify-between gap-2 rounded-xl border p-3 text-left hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:bg-muted/50 disabled:opacity-70">
-                            <span className="min-w-0 flex-1"><span className="block truncate font-semibold">{participantDisplayName(person)}</span><span className="block truncate text-sm text-muted-foreground">{person.club} · {person.sailType}{person.licenseNumber ? ` · Licence ${person.licenseNumber}` : ''}</span></span>
-                            <span className="w-16 shrink-0 break-words text-right text-xs font-medium leading-tight text-primary">{registeredParticipantIds.has(person.id) ? 'Déjà inscrit' : 'Choisir'}</span>
-                          </button>
-                        ))}
-                        {matchingRegistrationParticipants.length === 0 && <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">Aucun coureur libre ne correspond.</p>}
-                      </div>
+                      <>
+                        <div className="relative">
+                          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input id="registrationSearch" aria-label="Retrouver le coureur" type="search" enterKeyHint="search" autoComplete="off" className="pl-11" placeholder="Nom, club ou licence" value={registrationSearch} onChange={event => { setRegistrationSearch(event.target.value); setFastSelectedParticipantId(''); }} />
+                        </div>
+                        <ul className="max-h-60 min-w-0 divide-y overflow-y-auto overscroll-contain rounded-2xl border">
+                          {matchingRegistrationParticipants.map(person => {
+                            const taken = registeredParticipantIds.has(person.id);
+                            return (
+                              <li key={person.id}>
+                                <button type="button" disabled={taken} onClick={() => { setFastSelectedParticipantId(person.id); setRegistrationSearch(participantDisplayName(person)); }} className="flex min-h-14 w-full min-w-0 items-center gap-3 px-3 py-2 text-left transition-colors duration-100 active:bg-muted disabled:cursor-not-allowed disabled:opacity-50">
+                                  <span className="min-w-0 flex-1"><span className="block truncate font-semibold">{participantDisplayName(person)}</span><span className="block truncate text-[13px] text-muted-foreground">{person.club} · {person.sailType}{person.licenseNumber && !person.licenseNumber.startsWith('temp-') ? ` · ${person.licenseNumber}` : ''}</span></span>
+                                  <span className={cn("shrink-0 text-xs font-semibold", taken ? "text-muted-foreground" : "text-primary")}>{taken ? 'Déjà inscrit' : 'Choisir'}</span>
+                                </button>
+                              </li>
+                            );
+                          })}
+                          {matchingRegistrationParticipants.length === 0 && <li className="p-4 text-center text-sm text-muted-foreground">Aucun coureur ne correspond.</li>}
+                        </ul>
+                      </>
                     )}
-                    <Button type="button" variant="outline" className="h-12 w-full" onClick={() => { const nameParts = splitFullName(registrationSearch); setIsCreatingParticipant(true); setNewParticipantFirstName(nameParts.firstName); setNewParticipantLastName(nameParts.lastName); setFastSelectedParticipantId(''); }}>
-                      <UserPlus className="mr-2 h-4 w-4"/> Créer une nouvelle fiche
+                    <Button type="button" variant="outline" size="lg" className="w-full border-dashed" onClick={() => { const nameParts = splitFullName(registrationSearch); setIsCreatingParticipant(true); setNewParticipantFirstName(nameParts.firstName); setNewParticipantLastName(nameParts.lastName); setFastSelectedParticipantId(''); }}>
+                      <UserPlus /> Nouveau sur la feuille ? Créer sa fiche
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
-                    <div className="flex items-center justify-between"><h3 className="font-semibold">Nouvelle fiche coureur</h3><Button type="button" variant="ghost" onClick={() => setIsCreatingParticipant(false)}>Retour à la recherche</Button></div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-2"><Label htmlFor="newRunnerFirstName">Prénom *</Label><Input id="newRunnerFirstName" autoFocus autoComplete="given-name" className="h-12" value={newParticipantFirstName} onChange={event => setNewParticipantFirstName(event.target.value)} /></div>
-                      <div className="space-y-2"><Label htmlFor="newRunnerLastName">Nom *</Label><Input id="newRunnerLastName" autoComplete="family-name" className="h-12" value={newParticipantLastName} onChange={event => setNewParticipantLastName(event.target.value)} /></div>
-                      <div className="space-y-2"><Label htmlFor="newRunnerClub">Club *</Label><Input id="newRunnerClub" className="h-12" placeholder="Club ou indépendant" value={newParticipantClub} onChange={event => setNewParticipantClub(event.target.value)} /></div>
-                      <div className="space-y-2"><Label htmlFor="newRunnerLicense">Licence (facultatif)</Label><Input id="newRunnerLicense" className="h-12" value={newParticipantLicense} onChange={event => setNewParticipantLicense(event.target.value)} /></div>
-                      <div className="space-y-2"><Label>Profil</Label><Select value={newParticipantProfile} onValueChange={value => setNewParticipantProfile(value as NonNullable<Participant['profileType']>)}><SelectTrigger className="h-12"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="annualMember">Membre à l’année</SelectItem><SelectItem value="vacationRegular">Habitué vacances</SelectItem><SelectItem value="visitor">Visiteur / autre club</SelectItem><SelectItem value="unclassified">À classer</SelectItem></SelectContent></Select></div>
-                      <div className="space-y-2"><Label>Catégorie</Label><Select value={newParticipantCategory} onValueChange={value => setNewParticipantCategory(value as Participant['category'])}><SelectTrigger className="h-12"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Jeune">Jeune</SelectItem><SelectItem value="Confirmé">Confirmé</SelectItem><SelectItem value="Vétéran">Vétéran</SelectItem><SelectItem value="Catamaran">Catamaran</SelectItem><SelectItem value="Dériveur">Dériveur</SelectItem></SelectContent></Select></div>
-                      <div className="space-y-2"><Label>Support</Label><Select value={newParticipantSailType} onValueChange={value => setNewParticipantSailType(value as Participant['sailType'])}><SelectTrigger className="h-12"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Windsurf">Windsurf</SelectItem><SelectItem value="Wingfoil">Wingfoil</SelectItem><SelectItem value="Catamaran">Catamaran</SelectItem><SelectItem value="Dinghy">Dériveur</SelectItem></SelectContent></Select></div>
+                  <div className="space-y-4 rounded-2xl bg-muted/50 p-4">
+                    <div className="flex items-center justify-between gap-2"><h3 className="font-display text-base font-bold">Nouvelle fiche</h3><Button type="button" variant="ghost" size="sm" onClick={() => setIsCreatingParticipant(false)}><ArrowLeft />Recherche</Button></div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2"><Label htmlFor="newRunnerFirstName">Prénom</Label><Input id="newRunnerFirstName" autoFocus autoComplete="given-name" autoCapitalize="words" value={newParticipantFirstName} onChange={event => setNewParticipantFirstName(event.target.value)} /></div>
+                      <div className="space-y-2"><Label htmlFor="newRunnerLastName">Nom</Label><Input id="newRunnerLastName" autoComplete="family-name" autoCapitalize="words" value={newParticipantLastName} onChange={event => setNewParticipantLastName(event.target.value)} /></div>
+                      <div className="space-y-2"><Label htmlFor="newRunnerClub">Club</Label><Input id="newRunnerClub" placeholder="Club ou indépendant" value={newParticipantClub} onChange={event => setNewParticipantClub(event.target.value)} /></div>
+                      <div className="space-y-2"><Label htmlFor="newRunnerLicense">Licence <span className="font-normal text-muted-foreground">(facult.)</span></Label><Input id="newRunnerLicense" autoCorrect="off" value={newParticipantLicense} onChange={event => setNewParticipantLicense(event.target.value)} /></div>
+                      <div className="space-y-2"><Label>Support</Label><Select value={newParticipantSailType} onValueChange={value => setNewParticipantSailType(value as Participant['sailType'])}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Windsurf">Windsurf</SelectItem><SelectItem value="Wingfoil">Wingfoil</SelectItem><SelectItem value="Catamaran">Catamaran</SelectItem><SelectItem value="Dinghy">Dériveur</SelectItem></SelectContent></Select></div>
+                      <div className="space-y-2"><Label>Catégorie</Label><Select value={newParticipantCategory} onValueChange={value => setNewParticipantCategory(value as Participant['category'])}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Jeune">Jeune</SelectItem><SelectItem value="Confirmé">Confirmé</SelectItem><SelectItem value="Vétéran">Vétéran</SelectItem><SelectItem value="Catamaran">Catamaran</SelectItem><SelectItem value="Dériveur">Dériveur</SelectItem></SelectContent></Select></div>
+                      <div className="col-span-2 space-y-2"><Label>Profil</Label><Select value={newParticipantProfile} onValueChange={value => setNewParticipantProfile(value as NonNullable<Participant['profileType']>)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="annualMember">Membre à l’année</SelectItem><SelectItem value="vacationRegular">Habitué vacances</SelectItem><SelectItem value="visitor">Visiteur / autre club</SelectItem><SelectItem value="unclassified">À classer</SelectItem></SelectContent></Select></div>
                     </div>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="min-h-0 min-w-0 space-y-5 overflow-y-auto overscroll-contain py-2">
+              <div className="min-w-0 space-y-5">
                 <div className="space-y-2">
-                    <Label htmlFor="entryName">Nom de l'inscription / Équipe</Label>
-                    <Input className="h-12" id="entryName" value={entryName} onChange={(e) => setEntryName(e.target.value)} placeholder="Nom du coureur ou de l’équipe" />
+                    <Label htmlFor="entryName">Nom de l’inscription</Label>
+                    <Input id="entryName" value={entryName} onChange={(e) => setEntryName(e.target.value)} placeholder="Coureur ou nom d’équipe" />
                 </div>
                  <div className="space-y-2">
                     <Label>Dossard</Label>
                     <Select value={selectedBibNumber} onValueChange={setSelectedBibNumber}>
-                        <SelectTrigger className="h-12">
+                        <SelectTrigger>
                             <SelectValue placeholder="Choisir un dossard" />
                         </SelectTrigger>
                         <SelectContent>
@@ -885,25 +895,25 @@ export default function RaceManagementPage() {
                                 const participantWithBib = regattaParticipants?.find(p => p.bibNumber === bib && p.id !== editingRegattaParticipant?.id);
                                 return (
                                     <SelectItem key={bib} value={bib}>
-                                        {bib} {participantWithBib ? `(pris par ${participantWithBib.entryName})` : '(disponible)'}
+                                        <span className="font-semibold tabular-nums">{bib}</span> <span className="text-muted-foreground">{participantWithBib ? `· ${participantWithBib.entryName}` : '· libre'}</span>
                                     </SelectItem>
                                 )
                             })}
                         </SelectContent>
                     </Select>
                 </div>
-                
+
                  {regatta?.type !== 'individual' && (
                     <div className="space-y-2">
-                        <Label>Équipier(s)</Label>
+                        <Label>Équipage</Label>
                         <Popover>
                             <PopoverTrigger asChild>
-                                    <Button variant="outline" className="h-auto min-h-12 w-full justify-start whitespace-normal py-3 text-left font-normal">
-                                    <Plus className="mr-2 h-4 w-4" />
+                                <Button variant="outline" className="h-auto min-h-12 w-full justify-start whitespace-normal py-3 text-left font-medium">
+                                    <Plus />
                                     {selectedCrewNames}
                                 </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                                 <Command>
                                     <CommandInput placeholder="Rechercher un coureur..." />
                                     <CommandList>
@@ -913,8 +923,9 @@ export default function RaceManagementPage() {
                                         <CommandItem
                                             key={participant.id}
                                             value={participantDisplayName(participant)}
+                                            className="min-h-11"
                                             onSelect={() => {
-                                                setSelectedCrewIds(prev => 
+                                                setSelectedCrewIds(prev =>
                                                     prev.includes(participant.id)
                                                     ? prev.filter(id => id !== participant.id)
                                                     : [...prev, participant.id]
@@ -922,7 +933,7 @@ export default function RaceManagementPage() {
                                             }}
                                         >
                                             <CheckCircle
-                                                className={cn("mr-2 h-4 w-4", selectedCrewIds.includes(participant.id) ? "opacity-100" : "opacity-0")}
+                                                className={cn("mr-2 h-4 w-4 text-primary", selectedCrewIds.includes(participant.id) ? "opacity-100" : "opacity-0")}
                                             />
                                             {participantDisplayName(participant)}
                                         </CommandItem>
@@ -936,29 +947,29 @@ export default function RaceManagementPage() {
                  )}
             </div>
             )}
-            <DialogFooter className="min-w-0 flex-col-reverse gap-2 pt-2 sm:flex-row">
-                {regatta?.type === 'individual' && !editingRegattaParticipant ? <>
-                  <Button className="h-12" type="button" variant="outline" onClick={closeRegisterDialog}>Terminer</Button>
-                  <Button className="h-12" type="button" disabled={fastRegisterBusy || (!fastSelectedParticipantId && !isCreatingParticipant)} onClick={() => void handleFastRegistration()}>{fastRegisterBusy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Enregistrement…</> : 'Inscrire et suivant'}</Button>
+            <div className="flex min-w-0 flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+                {fastMode ? <>
+                  <Button size="lg" type="button" variant="outline" onClick={closeRegisterDialog}>Terminer</Button>
+                  <Button size="lg" type="button" disabled={fastRegisterBusy || bibTaken || (!fastSelectedParticipantId && !isCreatingParticipant)} onClick={() => void handleFastRegistration()}>{fastRegisterBusy ? <><Loader2 className="animate-spin"/>Enregistrement…</> : <>Inscrire et suivant<ChevronRight /></>}</Button>
                 </> : <>
-                <Button className="h-12" type="button" variant="outline" onClick={closeRegisterDialog}>Annuler</Button>
-                <Button className="h-12" type="submit" onClick={handleRegisterEntry}>{editingRegattaParticipant ? "Enregistrer" : "Inscrire"}</Button>
+                <Button size="lg" type="button" variant="outline" onClick={closeRegisterDialog}>Annuler</Button>
+                <Button size="lg" type="submit" onClick={handleRegisterEntry}>{editingRegattaParticipant ? "Enregistrer" : "Inscrire"}</Button>
                 </>}
-            </DialogFooter>
+            </div>
         </DialogContent>
        </Dialog>
-       
+
         <AlertDialog open={isSwapAlertOpen} onOpenChange={setIsSwapAlertOpen}>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Permuter les dossards ?</AlertDialogTitle>
+                    <AlertDialogTitle>Échanger les dossards ?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Le dossard {swapInfo?.newBib} est déjà attribué à {otherParticipantForSwap?.entryName}. Voulez-vous leur attribuer le dossard {editingRegattaParticipant?.bibNumber} en échange ?
+                        Le dossard {swapInfo?.newBib} est déjà attribué à {otherParticipantForSwap?.entryName}. Lui donner le dossard {editingRegattaParticipant?.bibNumber} en échange ?
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel onClick={() => setIsSwapAlertOpen(false)}>Annuler</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleConfirmSwap}>Permuter</AlertDialogAction>
+                    <AlertDialogAction onClick={handleConfirmSwap}>Échanger</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

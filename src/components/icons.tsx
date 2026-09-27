@@ -20,3 +20,15 @@ export function Sailboat(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+/** Marque de l'app : un pavillon de signalisation, diagonale orange sur voile claire. */
+export function BrandMark(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true" {...props}>
+      <rect width="32" height="32" rx="9" fill="hsl(var(--ink))" />
+      <rect x="9" y="6.5" width="1.8" height="19" rx="0.9" fill="hsl(var(--ink-foreground))" />
+      <path d="M10.8 7h13.7v10.8H10.8z" fill="hsl(var(--ink-foreground))" />
+      <path d="M10.8 7h13.7L10.8 17.8z" fill="hsl(var(--signal))" />
+    </svg>
+  );
+}

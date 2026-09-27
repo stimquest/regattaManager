@@ -2,78 +2,93 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Identité « comité de course » : encre marine, bleu océan pour agir,
+ * orange signal (bouées, pavillons) pour le direct et les accents.
+ */
 @layer base {
   :root {
     --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+    --background: 40 20% 97%;
+    --foreground: 213 45% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 213 45% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 195 91% 43%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 195 91% 43%;
-    --radius: 0.5rem;
-    --chart-1: 195 91% 43%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --sidebar-background: 240 10% 3.9%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 195 91% 43%;
-    --sidebar-primary-foreground: 210 40% 98%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 195 91% 43%;
+    --popover-foreground: 213 45% 11%;
+    --primary: 211 88% 42%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 213 24% 93%;
+    --secondary-foreground: 213 45% 14%;
+    --muted: 40 14% 93%;
+    --muted-foreground: 213 12% 42%;
+    --accent: 211 70% 95%;
+    --accent-foreground: 211 80% 30%;
+    --destructive: 356 72% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --signal: 18 100% 54%;
+    --signal-foreground: 0 0% 100%;
+    --success: 158 64% 32%;
+    --success-foreground: 0 0% 100%;
+    --ink: 213 55% 10%;
+    --ink-foreground: 40 30% 97%;
+    --ink-soft: 213 40% 17%;
+    --border: 40 10% 88%;
+    --input: 40 10% 84%;
+    --ring: 211 88% 42%;
+    --shadow: 213 50% 10%;
+    --radius: 1rem;
+    --chart-1: 211 88% 42%;
+    --chart-2: 18 100% 54%;
+    --chart-3: 158 64% 32%;
+    --chart-4: 43 90% 55%;
+    --chart-5: 262 60% 55%;
+    --sidebar-background: 213 55% 10%;
+    --sidebar-foreground: 40 30% 97%;
+    --sidebar-primary: 18 100% 54%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 213 40% 17%;
+    --sidebar-accent-foreground: 40 30% 97%;
+    --sidebar-border: 213 35% 18%;
+    --sidebar-ring: 18 100% 54%;
   }
 
-  .dark {
-    --background: 224 71.4% 11%;
-    --foreground: 210 20% 98%;
-    --card: 224 71.4% 14.1%;
-    --card-foreground: 210 20% 98%;
-    --popover: 224 71.4% 4.1%;
-    --popover-foreground: 210 20% 98%;
-    --primary: 195 83% 53%;
-    --primary-foreground: 224 71.4% 4.1%;
-    --secondary: 215 27.9% 26.9%;
-    --secondary-foreground: 210 20% 98%;
-    --muted: 215 27.9% 16.9%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 195 83% 63%;
-    --accent-foreground: 224 71.4% 4.1%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 20% 98%;
-    --border: 215 27.9% 23.9%;
-    --input: 215 27.9% 23.9%;
-    --ring: 195 83% 53%;
-    --radius: 0.5rem;
-    --chart-1: 195 83% 53%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --sidebar-background: 224 71.4% 11%;
-    --sidebar-foreground: 210 20% 98%;
-    --sidebar-primary: 195 83% 53%;
-    --sidebar-primary-foreground: 224 71.4% 4.1%;
-    --sidebar-accent: 215 27.9% 20.9%;
-    --sidebar-accent-foreground: 210 20% 98%;
-    --sidebar-border: 215 27.9% 23.9%;
-    --sidebar-ring: 195 83% 53%;
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: 214 45% 6%;
+      --foreground: 40 20% 95%;
+      --card: 214 38% 10%;
+      --card-foreground: 40 20% 95%;
+      --popover: 214 38% 11%;
+      --popover-foreground: 40 20% 95%;
+      --primary: 205 95% 62%;
+      --primary-foreground: 214 60% 8%;
+      --secondary: 214 28% 17%;
+      --secondary-foreground: 40 20% 95%;
+      --muted: 214 30% 14%;
+      --muted-foreground: 214 14% 64%;
+      --accent: 210 40% 17%;
+      --accent-foreground: 205 95% 78%;
+      --destructive: 356 80% 60%;
+      --destructive-foreground: 0 0% 100%;
+      --signal: 20 100% 58%;
+      --signal-foreground: 214 60% 8%;
+      --success: 156 60% 48%;
+      --success-foreground: 214 60% 8%;
+      --ink: 214 42% 12%;
+      --ink-foreground: 40 20% 96%;
+      --ink-soft: 214 34% 19%;
+      --border: 214 28% 17%;
+      --input: 214 26% 23%;
+      --ring: 205 95% 62%;
+      --shadow: 0 0% 0%;
+      --chart-1: 205 95% 62%;
+      --sidebar-background: 214 45% 8%;
+      --sidebar-accent: 214 34% 16%;
+      --sidebar-border: 214 28% 15%;
+    }
   }
 }
 
@@ -84,31 +99,159 @@
   html {
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
-  }
-  button, a, [role="button"] {
-    touch-action: manipulation;
-  }
-  .press-feedback {
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-touch-callout: none;
-    transition-property: transform, color, background-color, border-color;
-    transition-duration: 150ms;
-    transition-timing-function: var(--ease-out);
-  }
-  .press-feedback:active {
-    transform: scale(0.97);
+    overscroll-behavior: none;
+    color-scheme: light dark;
   }
   body {
     @apply bg-background text-foreground;
+    overscroll-behavior: none;
+    font-feature-settings: "cv11", "ss01";
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display), var(--font-sans), sans-serif;
+    letter-spacing: -0.02em;
+  }
+  button, a, [role="button"], label {
+    touch-action: manipulation;
+  }
+  button, [role="button"], [role="tab"] {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  /* iOS zoome sur un champ < 16px : on corrige la cause plutôt que de bloquer le zoom. */
+  @media (pointer: coarse) {
+    input, textarea, select {
+      font-size: 16px !important;
+    }
+  }
+  ::selection {
+    background: hsl(var(--primary) / 0.2);
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@layer components {
+  /* Retour au toucher : réagit dès l'appui, pas au relâchement. */
   .press-feedback {
-    transition: none;
+    -webkit-touch-callout: none;
+    transition-property: transform, color, background-color, border-color, box-shadow, opacity;
+    transition-duration: 150ms;
+    transition-timing-function: var(--ease-out);
   }
-  .press-feedback:active {
+  .press-feedback:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  .pressable {
+    -webkit-touch-callout: none;
+    transition-property: transform, background-color, border-color, box-shadow;
+    transition-duration: 160ms;
+    transition-timing-function: var(--ease-out);
+  }
+  .pressable:active {
+    transform: scale(0.985);
+  }
+
+  /* Surface marine des en-têtes : houle discrète + lueur signal. */
+  .surface-ink {
+    background-color: hsl(var(--ink));
+    color: hsl(var(--ink-foreground));
+    background-image:
+      radial-gradient(120% 90% at 100% 0%, hsl(var(--signal) / 0.22) 0%, transparent 55%),
+      radial-gradient(90% 80% at 0% 100%, hsl(var(--primary) / 0.35) 0%, transparent 60%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='24' viewBox='0 0 120 24'%3E%3Cpath d='M0 12c15 0 15-8 30-8s15 8 30 8 15-8 30-8 15 8 30 8' fill='none' stroke='white' stroke-opacity='0.07' stroke-width='1.5'/%3E%3C/svg%3E");
+    background-size: auto, auto, 120px 24px;
+  }
+
+  /* Char à voile : sarcelle de plage, lueur de sable, traînées de vent. */
+  .surface-teal {
+    background-color: hsl(180 55% 13%);
+    color: hsl(var(--ink-foreground));
+    background-image:
+      radial-gradient(120% 90% at 100% 0%, hsl(38 95% 60% / 0.25) 0%, transparent 55%),
+      radial-gradient(90% 80% at 0% 100%, hsl(172 70% 40% / 0.4) 0%, transparent 60%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='40' viewBox='0 0 160 40'%3E%3Cpath d='M0 10h52M70 10h26M8 30h34M60 30h70' fill='none' stroke='white' stroke-opacity='0.08' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-size: auto, auto, 160px 40px;
+  }
+
+  /* Dossard : pastille pleine, lisible en plein soleil. */
+  .bib {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.75rem;
+    height: 2.5rem;
+    padding: 0 0.5rem;
+    border-radius: 0.625rem;
+    background: hsl(var(--ink));
+    color: hsl(var(--ink-foreground));
+    font-family: var(--font-display), var(--font-sans), sans-serif;
+    font-weight: 700;
+    font-size: 1.125rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    box-shadow: inset 0 -2px 0 hsl(0 0% 0% / 0.25);
+  }
+  @media (prefers-color-scheme: dark) {
+    .bib {
+      background: hsl(var(--ink-foreground));
+      color: hsl(var(--ink));
+      box-shadow: inset 0 -2px 0 hsl(0 0% 0% / 0.15);
+    }
+  }
+
+  .rise-stagger > * {
+    animation: rise 280ms var(--ease-out) both;
+  }
+  .rise-stagger > *:nth-child(2) { animation-delay: 40ms; }
+  .rise-stagger > *:nth-child(3) { animation-delay: 80ms; }
+  .rise-stagger > *:nth-child(4) { animation-delay: 120ms; }
+  .rise-stagger > *:nth-child(5) { animation-delay: 160ms; }
+  .rise-stagger > *:nth-child(6) { animation-delay: 200ms; }
+  .rise-stagger > *:nth-child(n+7) { animation-delay: 240ms; }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Mouvement réduit : on garde les fondus utiles, on retire les déplacements. */
+@media (prefers-reduced-motion: reduce) {
+  .press-feedback:active:not(:disabled),
+  .pressable:active {
     transform: none;
+  }
+  .rise-stagger > *,
+  .animate-rise {
+    animation: none;
+  }
+  .animate-live-ping {
+    animation: none;
+  }
+  [data-state=open].animate-in,
+  [data-state=closed].animate-out {
+    --tw-enter-translate-y: 0 !important;
+    --tw-exit-translate-y: 0 !important;
+    --tw-enter-translate-x: 0 !important;
+    --tw-exit-translate-x: 0 !important;
+    --tw-enter-scale: 1 !important;
+    --tw-exit-scale: 1 !important;
   }
 }

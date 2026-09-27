@@ -22,8 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { splitFullName, type Participant } from "@/lib/types";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 const formSchema = z.object({
   firstName: z.string().min(2, { message: "Le prénom doit comporter au moins 2 caractères." }),
@@ -65,80 +64,81 @@ export function ParticipantForm({ participant, onSubmit, onClose }: ParticipantF
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
-        
-        <FormField
-          control={form.control}
-          name="firstName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Prénom</FormLabel>
-              <FormControl>
-                <Input className="h-12" placeholder="Prénom" autoComplete="given-name" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="lastName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Nom</FormLabel>
-              <FormControl>
-                <Input className="h-12" placeholder="Nom de famille" autoComplete="family-name" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="club"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Club</FormLabel>
-              <FormControl>
-                <Input className="h-12" placeholder="Nom du club" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-5">
+        <div className="grid grid-cols-2 gap-3">
+          <FormField
             control={form.control}
-            name="licenseNumber"
+            name="firstName"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Numéro de licence</FormLabel>
+                <FormLabel>Prénom</FormLabel>
                 <FormControl>
-                  <Input className="h-12" placeholder="Numéro de licence" {...field} />
+                  <Input placeholder="Jeanne" autoComplete="given-name" autoCapitalize="words" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
+          <FormField
+            control={form.control}
+            name="lastName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nom</FormLabel>
+                <FormControl>
+                  <Input placeholder="Martin" autoComplete="family-name" autoCapitalize="words" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="club"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Club</FormLabel>
+                <FormControl>
+                  <Input placeholder="Nom du club" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="licenseNumber"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Licence</FormLabel>
+                <FormControl>
+                  <Input placeholder="N° de licence" autoCapitalize="characters" autoCorrect="off" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <FormField
+          control={form.control}
+          name="sailType"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Support</FormLabel>
+              <ChoiceGroup value={field.value} onChange={field.onChange} options={[['Windsurf', 'Windsurf'], ['Wingfoil', 'Wingfoil'], ['Catamaran', 'Catamaran'], ['Dinghy', 'Dériveur']]} columns={4} />
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <FormField
           control={form.control}
           name="category"
           render={({ field }) => (
             <FormItem>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger className="h-12">
-                    <SelectValue placeholder="Sélectionner une catégorie" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="Jeune">Jeune</SelectItem>
-                  <SelectItem value="Confirmé">Confirmé</SelectItem>
-                  <SelectItem value="Vétéran">Vétéran</SelectItem>
-                  <SelectItem value="Catamaran">Catamaran</SelectItem>
-                  <SelectItem value="Dériveur">Dériveur</SelectItem>
-                </SelectContent>
-              </Select>
+              <FormLabel>Catégorie</FormLabel>
+              <ChoiceGroup value={field.value} onChange={field.onChange} options={[['Jeune', 'Jeune'], ['Confirmé', 'Confirmé'], ['Vétéran', 'Vétéran'], ['Catamaran', 'Catamaran'], ['Dériveur', 'Dériveur']]} columns={3} />
               <FormMessage />
             </FormItem>
           )}
@@ -151,7 +151,7 @@ export function ParticipantForm({ participant, onSubmit, onClose }: ParticipantF
               <FormLabel>Profil au club</FormLabel>
               <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
-                  <SelectTrigger className="h-12">
+                  <SelectTrigger>
                     <SelectValue placeholder="Choisir un profil" />
                   </SelectTrigger>
                 </FormControl>
@@ -166,75 +166,39 @@ export function ParticipantForm({ participant, onSubmit, onClose }: ParticipantF
             </FormItem>
           )}
         />
-         <FormField
-          control={form.control}
-          name="sailType"
-          render={({ field }) => (
-             <FormItem className="space-y-3">
-              <Label>Support Principal</Label>
-              <FormControl>
-                <RadioGroup
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                  className="grid grid-cols-2 gap-2"
-                >
-                  <FormItem>
-                    <FormControl>
-                      <RadioGroupItem value="Windsurf" id="windsurf" className="peer sr-only" />
-                    </FormControl>
-                    <Label
-                      htmlFor="windsurf"
-                      className="flex items-center justify-center rounded-md border-2 border-muted bg-popover p-4 font-medium hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/20 [&:has([data-state=checked])]:border-primary cursor-pointer"
-                    >
-                      Windsurf
-                    </Label>
-                  </FormItem>
-                  <FormItem >
-                     <FormControl>
-                      <RadioGroupItem value="Wingfoil" id="wingfoil" className="peer sr-only" />
-                    </FormControl>
-                     <Label
-                      htmlFor="wingfoil"
-                      className="flex items-center justify-center rounded-md border-2 border-muted bg-popover p-4 font-medium hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/20 [&:has([data-state=checked])]:border-primary cursor-pointer"
-                    >
-                      Wingfoil
-                    </Label>
-                  </FormItem>
-                   <FormItem >
-                     <FormControl>
-                      <RadioGroupItem value="Catamaran" id="catamaran" className="peer sr-only" />
-                    </FormControl>
-                     <Label
-                      htmlFor="catamaran"
-                      className="flex items-center justify-center rounded-md border-2 border-muted bg-popover p-4 font-medium hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/20 [&:has([data-state=checked])]:border-primary cursor-pointer"
-                    >
-                      Catamaran
-                    </Label>
-                  </FormItem>
-                   <FormItem >
-                     <FormControl>
-                      <RadioGroupItem value="Dinghy" id="dinghy" className="peer sr-only" />
-                    </FormControl>
-                     <Label
-                      htmlFor="dinghy"
-                      className="flex items-center justify-center rounded-md border-2 border-muted bg-popover p-4 font-medium hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/20 [&:has([data-state=checked])]:border-primary cursor-pointer"
-                    >
-                      Dériveur
-                    </Label>
-                  </FormItem>
-                </RadioGroup>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <div className="flex flex-col-reverse justify-end gap-2 pt-4 sm:flex-row">
-          <Button className="h-12" type="button" variant="outline" onClick={onClose}>
+        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+          <Button size="lg" type="button" variant="outline" onClick={onClose}>
             Annuler
           </Button>
-          <Button className="h-12" type="submit">Enregistrer le coureur</Button>
+          <Button size="lg" type="submit">{participant ? 'Enregistrer' : 'Ajouter le coureur'}</Button>
         </div>
       </form>
     </Form>
+  );
+}
+
+/** Choix exclusif en puces tactiles : plus rapide qu'une liste déroulante au pouce. */
+function ChoiceGroup({ value, onChange, options, columns }: { value: string; onChange: (value: string) => void; options: [string, string][]; columns: 3 | 4 }) {
+  return (
+    <div role="radiogroup" className={cn("grid gap-2", columns === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3")}>
+      {options.map(([optionValue, label]) => {
+        const selected = value === optionValue;
+        return (
+          <button
+            key={optionValue}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(optionValue)}
+            className={cn(
+              "press-feedback h-11 rounded-xl border-2 px-2 text-sm font-semibold",
+              selected ? "border-primary bg-primary/[0.06] text-primary" : "border-border bg-card hover:border-foreground/20"
+            )}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
   );
 }

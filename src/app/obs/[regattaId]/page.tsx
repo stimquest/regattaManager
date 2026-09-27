@@ -67,7 +67,9 @@ function OBSPageContent() {
 
     return enrichedResults.sort((a, b) => {
       if (a.status === 'Finished' && b.status === 'Finished') {
-        return (a.passage.finish || '').localeCompare(b.passage.finish || '');
+        // Même ordre que la saisie : la place confirmée, l'heure seulement pour départager (elle peut être inconnue).
+        return (a.arrivalOrder ?? a.rank ?? Infinity) - (b.arrivalOrder ?? b.rank ?? Infinity)
+          || (a.passage.finish || '').localeCompare(b.passage.finish || '');
       }
       if (a.status === 'Finished') return -1;
       if (b.status === 'Finished') return 1;

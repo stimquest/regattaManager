@@ -1,32 +1,12 @@
-
 "use client";
 
 import * as React from "react";
 import Papa from "papaparse";
 import { collection, addDoc, updateDoc, doc, writeBatch, getDocs, query, where, deleteField, type WriteBatch } from "firebase/firestore";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Users,
-  FileEdit,
-  Trash2,
-  UserPlus,
-  Loader2,
-  Upload,
-  Search,
-} from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge";
+import { Users, Trash2, UserPlus, Loader2, Upload, Search, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -45,6 +25,8 @@ import { participantDisplayName, participantSearchText, splitFullName, type Part
 import { useFirestore, useCollection } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { emitFirestoreError } from "@/firebase/errors";
+import { Page, PageHero, EmptyState, PageLoader } from "@/components/layout/page";
+import { cn } from "@/lib/utils";
 
 
 export default function RunnersPage() {
@@ -325,207 +307,141 @@ export default function RunnersPage() {
   }, [participants, searchTerm, profileFilter]
   );
   
+  const sailTone: Record<Participant['sailType'], string> = {
+    Windsurf: 'bg-primary/12 text-primary',
+    Wingfoil: 'bg-signal/12 text-signal',
+    Catamaran: 'bg-teal-500/12 text-teal-700 dark:text-teal-300',
+    Dinghy: 'bg-violet-500/12 text-violet-700 dark:text-violet-300',
+  };
+  const initials = (participant: Participant) => participantDisplayName(participant).split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase();
+  const allVisibleSelected = sortedParticipants.length > 0 && sortedParticipants.every(p => selectedIds.includes(p.id));
+  const someVisibleSelected = sortedParticipants.some(p => selectedIds.includes(p.id));
+
   const renderContent = () => {
-     if (loadingParticipants) {
-      return (
-        <div className="flex justify-center items-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      );
+    if (loadingParticipants) return <PageLoader label="Chargement de l’annuaire…" />;
+    if (sortedParticipants.length === 0) {
+      return searchTerm || profileFilter !== 'all'
+        ? <EmptyState icon={Search} title="Aucun résultat">Essayez un autre nom, un autre club ou retirez le filtre.</EmptyState>
+        : <EmptyState icon={Users} title="L’annuaire est vide" action={<Button size="lg" onClick={() => openParticipantDialog()}><UserPlus />Ajouter un coureur</Button>}>Ajoutez un coureur ou importez votre liste CSV.</EmptyState>;
     }
-    
     return (
-        <Card className="overflow-hidden rounded-2xl">
-            <CardContent className="p-0">
-              <div className="divide-y md:hidden">
-                {sortedParticipants.length ? sortedParticipants.map(participant => <article key={participant.id} className="flex items-start gap-3 p-4">
-                  <Checkbox className="mt-1" aria-label={`Sélectionner ${participantDisplayName(participant)}`} checked={selectedIds.includes(participant.id)} onCheckedChange={() => handleSelect(participant.id)} />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold">{participantDisplayName(participant)}</p>
-                    <p className="mt-0.5 text-sm text-muted-foreground">{participant.club}</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5"><span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{profileLabel(participant.profileType)}</span><span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">{participant.sailType}</span><span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">{participant.category}</span></div>
-                    {participant.licenseNumber && !participant.licenseNumber.startsWith('temp-') && <p className="mt-2 text-xs text-muted-foreground">Licence {participant.licenseNumber}</p>}
-                  </div>
-                  <div className="flex shrink-0 flex-col gap-1"><Button variant="outline" size="icon" className="h-11 w-11 rounded-xl" onClick={() => openParticipantDialog(participant)} aria-label={`Modifier ${participantDisplayName(participant)}`}><FileEdit className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="h-11 w-11 rounded-xl" onClick={() => openDeleteDialog({ single: participant })} aria-label={`Supprimer ${participantDisplayName(participant)}`}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>
-                </article>) : <div className="p-10 text-center"><p className="font-medium">{searchTerm ? 'Aucun résultat' : 'Aucun coureur enregistré'}</p><p className="mt-1 text-sm text-muted-foreground">{searchTerm ? 'Essayez avec un autre nom ou un autre club.' : 'Ajoutez un coureur ou importez votre liste CSV.'}</p></div>}
-              </div>
-              <div className="hidden overflow-x-auto md:block">
-               <Table>
-                 <TableHeader>
-                    <TableRow>
-                      <TableHead className="p-4">
-                        <Checkbox
-                          aria-label="Select all"
-                          checked={Boolean(participants && selectedIds.length === participants.length && participants.length > 0)}
-                          onCheckedChange={(checked) => handleSelectAll(!!checked)}
-                          data-state={participants && selectedIds.length > 0 && selectedIds.length < participants.length ? 'indeterminate' : (participants && selectedIds.length === participants.length && participants.length > 0 ? 'checked' : 'unchecked')}
-                        />
-                      </TableHead>
-                      <TableHead>Coureur</TableHead>
-                      <TableHead>Profil</TableHead>
-                      <TableHead className="hidden md:table-cell">Support</TableHead>
-                      <TableHead className="hidden md:table-cell">Catégorie</TableHead>
-                      <TableHead className="hidden lg:table-cell">Licence</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                <TableBody>
-                {sortedParticipants.length > 0 ? (
-                    sortedParticipants.map((participant) => (
-                    <TableRow key={participant.id} data-state={selectedIds.includes(participant.id) && "selected"}>
-                        <TableCell className="p-4">
-                          <Checkbox
-                              aria-label={`Select ${participantDisplayName(participant)}`}
-                              checked={selectedIds.includes(participant.id)}
-                              onCheckedChange={() => handleSelect(participant.id)}
-                            />
-                        </TableCell>
-                        <TableCell>
-                          <p className="font-semibold">{participantDisplayName(participant)}</p>
-                          <p className="text-sm text-muted-foreground md:hidden">{participant.club}</p>
-                        </TableCell>
-                        <TableCell><span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{profileLabel(participant.profileType)}</span></TableCell>
-                        <TableCell className="hidden md:table-cell">{participant.sailType}</TableCell>
-                        <TableCell className="hidden md:table-cell">{participant.category}</TableCell>
-                        <TableCell className="hidden lg:table-cell">{participant.licenseNumber.startsWith('temp-') ? 'N/A' : participant.licenseNumber}</TableCell>
-                        <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => openParticipantDialog(participant)}>
-                            <FileEdit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => openDeleteDialog({ single: participant })}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                        </TableCell>
-                    </TableRow>
-                    ))
-                ) : (
-                    <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                          {searchTerm ? 'Aucun résultat pour cette recherche.' : 'Aucun coureur dans votre base de données.'}
-                      </TableCell>
-                    </TableRow>
-                )}
-                </TableBody>
-              </Table>
-              </div>
-            </CardContent>
-        </Card>
-    )
+      <ul className="divide-y overflow-hidden rounded-3xl border bg-card shadow-soft">
+        {sortedParticipants.map(participant => {
+          const selected = selectedIds.includes(participant.id);
+          return (
+            <li key={participant.id} className={cn("flex items-center gap-1 pr-2 transition-colors duration-150", selected && "bg-primary/[0.05]")}>
+              <label className="flex h-16 w-12 shrink-0 cursor-pointer items-center justify-center sm:w-14">
+                <Checkbox aria-label={`Sélectionner ${participantDisplayName(participant)}`} checked={selected} onCheckedChange={() => handleSelect(participant.id)} />
+              </label>
+              <button type="button" onClick={() => openParticipantDialog(participant)} className="flex min-h-[68px] min-w-0 flex-1 items-center gap-3 py-2.5 text-left transition-opacity duration-100 active:opacity-70">
+                <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-full font-display text-sm font-bold", sailTone[participant.sailType] ?? 'bg-muted')}>{initials(participant)}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold">{participantDisplayName(participant)}</span>
+                  <span className="block truncate text-[13px] text-muted-foreground">{participant.club} · {participant.category}{participant.licenseNumber && !participant.licenseNumber.startsWith('temp-') ? ` · ${participant.licenseNumber}` : ''}</span>
+                </span>
+                <span className="hidden shrink-0 gap-1.5 sm:flex">
+                  <Badge variant="secondary">{participant.sailType === 'Dinghy' ? 'Dériveur' : participant.sailType}</Badge>
+                  <Badge variant={participant.profileType === 'annualMember' ? 'default' : participant.profileType === 'unclassified' || !participant.profileType ? 'outline' : 'secondary'}>{profileLabel(participant.profileType)}</Badge>
+                </span>
+              </button>
+              <Button variant="ghost" size="icon" className="shrink-0 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => openDeleteDialog({ single: participant })} aria-label={`Supprimer ${participantDisplayName(participant)}`}>
+                <Trash2 />
+              </Button>
+            </li>
+          );
+        })}
+      </ul>
+    );
   }
-  
+
   const deleteAlertDescription = React.useMemo(() => {
     if (!deleteTarget) return "";
-    const getSingleDesc = (p?: Participant) => `Cette action est irréversible. Le coureur "${p ? participantDisplayName(p) : ''}" sera définitivement supprimé de la base de données et de toutes les régates où il est inscrit.`;
-    const getMultipleDesc = (ids?: string[]) => `Cette action est irréversible. Les ${ids?.length} coureurs sélectionnés seront définitivement supprimés de la base de données et de toutes les régates où ils sont inscrits.`;
+    const getSingleDesc = (p?: Participant) => `« ${p ? participantDisplayName(p) : ''} » sera retiré de l’annuaire et de toutes les régates où il est inscrit. Cette action est irréversible.`;
+    const getMultipleDesc = (ids?: string[]) => `Les ${ids?.length} coureurs sélectionnés seront retirés de l’annuaire et de toutes les régates où ils sont inscrits. Cette action est irréversible.`;
 
     if (deleteTarget.single) return getSingleDesc(deleteTarget.single);
     if (deleteTarget.multiple) return getMultipleDesc(deleteTarget.multiple);
     return "Cette action est irréversible et supprimera les coureurs sélectionnés.";
   }, [deleteTarget]);
 
+  const profileFilters = [
+    ['annualMember', 'Membres'],
+    ['vacationRegular', 'Habitués'],
+    ['visitor', 'Visiteurs'],
+    ['unclassified', 'À classer'],
+  ] as const;
 
   return (
     <>
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 p-4 pb-28 md:p-8">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div><p className="mb-2 text-sm font-semibold uppercase tracking-[0.16em] text-primary">Annuaire du club</p><div className="flex flex-wrap items-center gap-3"><h1 className="text-3xl font-bold tracking-tight">Coureurs</h1><span className="rounded-full bg-muted px-3 py-1 text-sm font-semibold tabular-nums">{participants?.length ?? '—'}</span></div><p className="mt-1 text-sm text-muted-foreground">Gérez les profils et retrouvez-les facilement lors des inscriptions.</p></div>
-          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-            <Input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              accept=".csv"
-              onChange={handleFileImport}
-            />
-             {selectedIds.length > 0 ? (
-                <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-                  <Select onValueChange={value => void handleBulkProfileChange(value as NonNullable<Participant['profileType']>)}>
-                    <SelectTrigger className="h-12 min-w-52 flex-1 sm:flex-none"><SelectValue placeholder="Modifier le profil" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="annualMember">Membre à l’année</SelectItem>
-                      <SelectItem value="vacationRegular">Habitué des vacances</SelectItem>
-                      <SelectItem value="visitor">Visiteur / autre club</SelectItem>
-                      <SelectItem value="unclassified">À classer</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button className="h-12 flex-1 sm:flex-none" variant="destructive" onClick={() => openDeleteDialog({ multiple: selectedIds })}>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Supprimer ({selectedIds.length})
-                  </Button>
-                </div>
-            ) : (
-              <>
-                 <Button className="h-12 flex-1 sm:flex-none" variant="outline" onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Importer CSV
-                </Button>
-                <Button className="h-12 flex-1 sm:flex-none" onClick={() => openParticipantDialog()}>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Ajouter un coureur
-                </Button>
-              </>
-            )}
-            
+      <Page>
+        <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleFileImport} />
+        <PageHero
+          eyebrow="Régates · annuaire"
+          title="Coureurs"
+          description="Les concurrents de vos régates : une fiche par personne, réutilisée à chaque inscription."
+          actions={<>
+            <Button variant="signal" size="xl" className="flex-1 md:flex-none" onClick={() => openParticipantDialog()}><UserPlus className="!size-5" />Ajouter</Button>
+            <Button size="xl" className="flex-1 border border-white/15 bg-white/10 text-white shadow-none hover:bg-white/15 md:flex-none" onClick={() => fileInputRef.current?.click()}><Upload className="!size-5" />Importer<span className="hidden sm:inline">&nbsp;CSV</span></Button>
+          </>}
+        >
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+            {profileFilters.map(([key, label]) => {
+              const active = profileFilter === key;
+              return (
+                <button key={key} type="button" aria-pressed={active} onClick={() => setProfileFilter(active ? 'all' : key)} className={cn("press-feedback rounded-2xl px-4 py-3 text-left ring-1 ring-inset", active ? "bg-white text-ink ring-white" : "bg-white/[0.06] ring-white/10 hover:bg-white/10")}>
+                  <span className="block font-display text-3xl font-extrabold leading-none tabular-nums">{profileCounts[key]}</span>
+                  <span className={cn("mt-1.5 block text-xs font-medium", active ? "text-ink/70" : "text-white/60")}>{label}</span>
+                </button>
+              );
+            })}
           </div>
-        </header>
-        <div className="grid gap-3 sm:grid-cols-[minmax(15rem,24rem)_minmax(13rem,18rem)]">
-          <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input className="h-12 rounded-xl pl-10" placeholder="Rechercher par nom, club, licence…" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
-          <Select value={profileFilter} onValueChange={setProfileFilter}>
-            <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Tous les profils" /></SelectTrigger>
+        </PageHero>
+
+        <div className="sticky top-0 z-20 -mx-4 space-y-2 bg-background/85 px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] backdrop-blur-xl md:static md:mx-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input type="search" enterKeyHint="search" autoComplete="off" className="h-12 rounded-2xl pl-11 shadow-soft" placeholder="Nom, club, licence…" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          </div>
+          {!loadingParticipants && sortedParticipants.length > 0 && (
+            <div className="flex items-center justify-between gap-3 px-1 text-sm">
+              <label className="flex min-h-10 cursor-pointer items-center gap-3 font-medium text-muted-foreground">
+                <Checkbox
+                  aria-label="Sélectionner tous les coureurs affichés"
+                  checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                  onCheckedChange={checked => handleSelectAll(checked === true)}
+                />
+                {sortedParticipants.length} coureur{sortedParticipants.length > 1 ? 's' : ''}{profileFilter !== 'all' ? ` · ${profileLabel(profileFilter as Participant['profileType'])}` : ''}
+              </label>
+              {profileFilter !== 'all' && <Button variant="ghost" size="sm" onClick={() => setProfileFilter('all')}>Tous les profils</Button>}
+            </div>
+          )}
+        </div>
+
+        {renderContent()}
+      </Page>
+
+      {/* Actions de la sélection, posées au-dessus de la barre d'onglets. */}
+      {selectedIds.length > 0 && (
+        <div className="fixed inset-x-3 bottom-[calc(72px+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-xl animate-rise items-center gap-2 rounded-2xl bg-ink p-2 pl-4 text-ink-foreground shadow-lift md:bottom-6 md:left-[calc(248px+1.5rem)]">
+          <span aria-live="polite" className="mr-auto text-sm font-semibold tabular-nums">{selectedIds.length} sélectionné{selectedIds.length > 1 ? 's' : ''}</span>
+          <Select onValueChange={value => void handleBulkProfileChange(value as NonNullable<Participant['profileType']>)}>
+            <SelectTrigger className="h-10 w-auto gap-2 border-white/15 bg-white/10 text-sm text-white focus:ring-white/20"><SelectValue placeholder="Profil" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tous les profils</SelectItem>
-              <SelectItem value="annualMember">Membres à l’année</SelectItem>
-              <SelectItem value="vacationRegular">Habitués des vacances</SelectItem>
-              <SelectItem value="visitor">Visiteurs / autres clubs</SelectItem>
+              <SelectItem value="annualMember">Membre à l’année</SelectItem>
+              <SelectItem value="vacationRegular">Habitué des vacances</SelectItem>
+              <SelectItem value="visitor">Visiteur / autre club</SelectItem>
               <SelectItem value="unclassified">À classer</SelectItem>
             </SelectContent>
           </Select>
+          <Button size="icon" variant="destructive" className="h-10 w-10" onClick={() => openDeleteDialog({ multiple: selectedIds })} aria-label={`Supprimer ${selectedIds.length} coureur(s)`}><Trash2 /></Button>
+          <Button size="icon" variant="ghost" className="h-10 w-10 text-white hover:bg-white/10" onClick={() => setSelectedIds([])} aria-label="Tout désélectionner"><X /></Button>
         </div>
-
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {([
-            ['annualMember', 'Membres à l’année'],
-            ['vacationRegular', 'Habitués vacances'],
-            ['visitor', 'Visiteurs'],
-            ['unclassified', 'À classer'],
-          ] as const).map(([key, label]) => (
-            <button key={key} type="button" onClick={() => setProfileFilter(profileFilter === key ? 'all' : key)} className={`rounded-xl border p-3 text-left transition-colors ${profileFilter === key ? 'border-primary bg-primary/5' : 'bg-card hover:bg-muted/50'}`}>
-              <span className="block text-xl font-bold tabular-nums">{profileCounts[key]}</span>
-              <span className="text-xs text-muted-foreground">{label}</span>
-            </button>
-          ))}
-        </div>
-
-        {!loadingParticipants && sortedParticipants.length > 0 && (
-          <div className="flex min-h-12 flex-wrap items-center justify-between gap-3 rounded-xl border bg-card px-4 py-2">
-            <label className="flex min-h-10 cursor-pointer items-center gap-3 text-sm font-medium">
-              <Checkbox
-                aria-label="Sélectionner tous les coureurs affichés"
-                checked={sortedParticipants.every(p => selectedIds.includes(p.id)) ? true : sortedParticipants.some(p => selectedIds.includes(p.id)) ? "indeterminate" : false}
-                onCheckedChange={checked => handleSelectAll(checked === true)}
-              />
-              Sélectionner les {sortedParticipants.length} coureurs affichés
-            </label>
-            {selectedIds.length > 0 && (
-              <div className="flex items-center gap-3 text-sm">
-                <span aria-live="polite" className="text-muted-foreground">{selectedIds.length} sélectionné{selectedIds.length > 1 ? "s" : ""}</span>
-                <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>Tout désélectionner</Button>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="space-y-6">
-           {renderContent()}
-        </div>
-      </main>
+      )}
 
       <Dialog open={isParticipantDialogOpen} onOpenChange={setIsParticipantDialogOpen}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-2xl sm:max-w-[425px]">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {editingParticipant ? "Modifier le Coureur" : "Nouveau Coureur"}
-            </DialogTitle>
+            <DialogTitle>{editingParticipant ? "Modifier la fiche" : "Nouveau coureur"}</DialogTitle>
           </DialogHeader>
           <ParticipantForm
             participant={editingParticipant}
@@ -534,11 +450,11 @@ export default function RunnersPage() {
           />
         </DialogContent>
       </Dialog>
-      
+
        <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
+              <AlertDialogTitle>Supprimer {deleteTarget?.multiple ? `${deleteTarget.multiple.length} coureurs` : 'ce coureur'} ?</AlertDialogTitle>
               <AlertDialogDescription>
                 {deleteAlertDescription}
               </AlertDialogDescription>
@@ -546,7 +462,7 @@ export default function RunnersPage() {
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setIsDeleteAlertOpen(false)}>Annuler</AlertDialogCancel>
               <AlertDialogAction disabled={isDeleting} onClick={(event) => { event.preventDefault(); void confirmDeleteParticipant(); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                {isDeleting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Suppression…</> : `Supprimer${deleteTarget?.multiple ? ` (${deleteTarget.multiple.length})` : ""}`}
+                {isDeleting ? <><Loader2 className="animate-spin" /> Suppression…</> : `Supprimer${deleteTarget?.multiple ? ` (${deleteTarget.multiple.length})` : ""}`}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
