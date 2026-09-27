@@ -10,6 +10,7 @@ import {
   FormControl,
   FormField,
   FormItem,
+  FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -20,16 +21,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Participant } from "@/lib/types";
+import { splitFullName, type Participant } from "@/lib/types";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 
 const formSchema = z.object({
-  name: z.string().min(2, { message: "Le nom doit comporter au moins 2 caractères." }),
+  firstName: z.string().min(2, { message: "Le prénom doit comporter au moins 2 caractères." }),
+  lastName: z.string().min(2, { message: "Le nom doit comporter au moins 2 caractères." }),
   club: z.string().min(2, { message: "Le nom du club doit comporter au moins 2 caractères." }),
   licenseNumber: z.string().min(3, { message: "La licence doit comporter au moins 3 caractères." }),
   category: z.enum(['Jeune', 'Confirmé', 'Vétéran', 'Catamaran', 'Dériveur']),
   sailType: z.enum(['Windsurf', 'Wingfoil', 'Catamaran', 'Dinghy']),
+  profileType: z.enum(['annualMember', 'vacationRegular', 'visitor', 'unclassified']),
 });
 
 type ParticipantFormProps = {
@@ -39,14 +42,17 @@ type ParticipantFormProps = {
 };
 
 export function ParticipantForm({ participant, onSubmit, onClose }: ParticipantFormProps) {
+  const legacyNameParts = splitFullName(participant?.name ?? '');
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: participant || {
-      name: "",
-      club: "",
-      licenseNumber: "",
-      category: "Confirmé",
-      sailType: "Windsurf",
+    defaultValues: {
+      firstName: participant?.firstName ?? legacyNameParts.firstName,
+      lastName: participant?.lastName ?? legacyNameParts.lastName,
+      club: participant?.club ?? "",
+      licenseNumber: participant?.licenseNumber ?? "",
+      category: participant?.category ?? "Confirmé",
+      sailType: participant?.sailType ?? "Windsurf",
+      profileType: participant?.profileType ?? "unclassified",
     },
   });
 
@@ -63,11 +69,25 @@ export function ParticipantForm({ participant, onSubmit, onClose }: ParticipantF
         
         <FormField
           control={form.control}
-          name="name"
+          name="firstName"
           render={({ field }) => (
             <FormItem>
+              <FormLabel>Prénom</FormLabel>
               <FormControl>
-                <Input placeholder="Nom et prénom du coureur" {...field} />
+                <Input className="h-12" placeholder="Prénom" autoComplete="given-name" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="lastName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Nom</FormLabel>
+              <FormControl>
+                <Input className="h-12" placeholder="Nom de famille" autoComplete="family-name" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -79,8 +99,9 @@ export function ParticipantForm({ participant, onSubmit, onClose }: ParticipantF
           name="club"
           render={({ field }) => (
             <FormItem>
+              <FormLabel>Club</FormLabel>
               <FormControl>
-                <Input placeholder="Club" {...field} />
+                <Input className="h-12" placeholder="Nom du club" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -91,8 +112,9 @@ export function ParticipantForm({ participant, onSubmit, onClose }: ParticipantF
             name="licenseNumber"
             render={({ field }) => (
               <FormItem>
+                <FormLabel>Numéro de licence</FormLabel>
                 <FormControl>
-                  <Input placeholder="Numéro de Licence" {...field} />
+                  <Input className="h-12" placeholder="Numéro de licence" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -105,7 +127,7 @@ export function ParticipantForm({ participant, onSubmit, onClose }: ParticipantF
             <FormItem>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-12">
                     <SelectValue placeholder="Sélectionner une catégorie" />
                   </SelectTrigger>
                 </FormControl>
@@ -115,6 +137,29 @@ export function ParticipantForm({ participant, onSubmit, onClose }: ParticipantF
                   <SelectItem value="Vétéran">Vétéran</SelectItem>
                   <SelectItem value="Catamaran">Catamaran</SelectItem>
                   <SelectItem value="Dériveur">Dériveur</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="profileType"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Profil au club</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger className="h-12">
+                    <SelectValue placeholder="Choisir un profil" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="annualMember">Membre du club à l’année</SelectItem>
+                  <SelectItem value="vacationRegular">Habitué des vacances</SelectItem>
+                  <SelectItem value="visitor">Visiteur ou autre club</SelectItem>
+                  <SelectItem value="unclassified">À classer</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -183,11 +228,11 @@ export function ParticipantForm({ participant, onSubmit, onClose }: ParticipantF
             </FormItem>
           )}
         />
-        <div className="flex justify-end gap-2 pt-4">
-          <Button type="button" variant="outline" onClick={onClose}>
+        <div className="flex flex-col-reverse justify-end gap-2 pt-4 sm:flex-row">
+          <Button className="h-12" type="button" variant="outline" onClick={onClose}>
             Annuler
           </Button>
-          <Button type="submit">Enregistrer</Button>
+          <Button className="h-12" type="submit">Enregistrer le coureur</Button>
         </div>
       </form>
     </Form>

@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
+  Wind,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -28,6 +29,7 @@ import { Button } from "../ui/button";
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Tableau de Bord" },
   { href: "/", icon: Sailboat, label: "Régates" },
+  { href: "/land-yachting", icon: Wind, label: "Char à voile" },
   { href: "/runners", icon: Users, label: "Coureurs" },
 ];
 
@@ -41,13 +43,13 @@ function MobileBottomNav() {
           key={item.href} 
           href={item.href}
            className={cn(
-              "flex flex-col items-center gap-1 p-2 rounded-md w-24",
+              "flex min-w-0 flex-1 flex-col items-center gap-1 p-2 rounded-md",
               // Special case for root to avoid matching all routes
               (pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))) && item.href !== "/" ? "text-primary bg-primary/10" :
               pathname === "/" && item.href === "/" ? "text-primary bg-primary/10" : "text-muted-foreground"
             )}>
             <item.icon className="h-6 w-6" />
-            <span className="text-xs">{item.label}</span>
+            <span className="text-center text-[11px] leading-tight">{item.label}</span>
         </Link>
       ))}
     </nav>

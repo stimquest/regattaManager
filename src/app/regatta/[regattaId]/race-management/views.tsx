@@ -2,6 +2,7 @@
 "use client";
 
 import * as React from "react";
+import { ArrivalEntry } from "./arrival-entry";
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { doc, collection, updateDoc, CollectionReference, addDoc, deleteDoc, writeBatch } from "firebase/firestore";
@@ -41,6 +42,8 @@ import {
   Play,
   Plus,
   ArrowLeft,
+  ArrowUp,
+  ArrowDown,
   Flag,
   ListOrdered,
   Trophy,
@@ -53,6 +56,7 @@ import {
   FileDown,
   CheckCircle,
   UserPlus,
+  Search,
   FileEdit,
   Trash2,
   GripVertical
@@ -87,15 +91,61 @@ import {
 } from "@/components/ui/command"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import type { Heat, Regatta, Participant, RegattaParticipant, Score, CompetitorRaceResult } from "@/lib/types";
+import { participantDisplayName, participantSearchText, type Heat, type Regatta, type Participant, type RegattaParticipant, type Score, type CompetitorRaceResult } from "@/lib/types";
 import { useFirestore, useDoc, useCollection } from "@/firebase";
 import { emitFirestoreError } from "@/firebase/errors";
 import { NumberStepper } from "@/components/ui/number-stepper";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 
-export enum View { HeatsList, HeatDetail, HeatResults, OverallResults }
+export enum View { HeatsList, HeatDetail, HeatResults, OverallResults, ScoringSettings }
 export type OverallResult = { participantId: string; totalPoints: number; scores: Score[]; entryName: string; crewNames: string[]; }
+
+export function ScoringSettingsView({ regatta, updateScoringRules, setCurrentView }: any) {
+  const [rules, setRules] = React.useState(regatta.scoringRules ?? {
+    pen: { mode: 'fleetPlus', offset: 1 },
+    dns: { mode: 'fleetPlus', offset: 1 },
+    dnf: { mode: 'fleetPlus', offset: 1 },
+    discards: 0,
+  });
+  const rows = [
+    ['pen', 'PEN · Pénalité'],
+    ['dns', 'DNS · N’a pas pris le départ'],
+    ['dnf', 'DNF · N’a pas terminé'],
+  ] as const;
+
+  return <main className="flex flex-1 flex-col p-4 md:p-6">
+    <div className="flex items-center gap-3 mb-6">
+      <Button variant="ghost" size="icon" onClick={() => setCurrentView(View.HeatsList)}><ArrowLeft className="h-5 w-5" /></Button>
+      <div><h1 className="text-2xl font-bold">Règles de score</h1><p className="text-sm text-muted-foreground">{regatta.name}</p></div>
+    </div>
+    <Card className="max-w-2xl">
+      <CardHeader><CardTitle>Points de pénalité</CardTitle><CardDescription>Réglez séparément chaque statut. Le réglage actuel du club est conservé par défaut : nombre d’inscrits + 1 point.</CardDescription></CardHeader>
+      <CardContent className="space-y-5">
+        {rows.map(([key, title]) => {
+          const rule = rules[key];
+          return <div key={key} className="grid grid-cols-1 sm:grid-cols-[1fr_180px_110px] gap-3 items-center">
+            <Label>{title}</Label>
+            <Select value={rule.mode} onValueChange={(mode: 'fleetPlus' | 'fixed') => setRules({ ...rules, [key]: mode === 'fixed' ? { mode, points: 1 } : { mode, offset: 1 } })}>
+              <SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="fleetPlus">Inscrits +</SelectItem><SelectItem value="fixed">Valeur fixe</SelectItem></SelectContent>
+            </Select>
+            <Input aria-label={`Points ${key}`} type="number" min="0" step="1" value={rule.mode === 'fixed' ? rule.points : rule.offset}
+              onChange={e => setRules({ ...rules, [key]: rule.mode === 'fixed' ? { ...rule, points: Math.max(0, Number(e.target.value)) } : { ...rule, offset: Math.max(0, Number(e.target.value)) } })} />
+          </div>;
+        })}
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_110px] gap-3 items-center border-t pt-4">
+          <Label htmlFor="settings-discards">Manches à retirer du classement général</Label>
+          <Input id="settings-discards" type="number" min="0" step="1" value={rules.discards} onChange={e => setRules({ ...rules, discards: Math.max(0, Number(e.target.value)) })} />
+        </div>
+        <p className="text-sm text-muted-foreground">Exemple : avec 12 inscrits, « Inscrits + 1 » attribue 13 points. Une valeur fixe reste identique quel que soit le nombre de participants.</p>
+      </CardContent>
+    </Card>
+    <div className="flex gap-3 mt-4">
+      <Button onClick={() => { updateScoringRules(rules); setCurrentView(View.HeatsList); }}>Enregistrer les règles</Button>
+      <Button variant="outline" onClick={() => setCurrentView(View.HeatsList)}>Annuler</Button>
+    </div>
+  </main>;
+}
 
 
 export function SortableParticipantItem({ rp, getParticipantName, openEditDialog, handleDeregister }: any) {
@@ -113,10 +163,10 @@ export function SortableParticipantItem({ rp, getParticipantName, openEditDialog
   };
 
   return (
-    <Card ref={setNodeRef} style={style} className="p-3 touch-none">
+    <Card ref={setNodeRef} style={style} className="rounded-xl p-3">
       <div className="flex justify-between items-center">
           <div className="flex items-center gap-3 flex-1 min-w-0">
-              <Button variant="ghost" size="icon" className="h-8 w-8 cursor-grab" {...attributes} {...listeners}>
+              <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0 cursor-grab touch-none" aria-label={`Réordonner ${rp.entryName}`} {...attributes} {...listeners}>
                 <GripVertical className="h-5 w-5 text-muted-foreground" />
               </Button>
               <Badge variant="secondary" className="text-base font-bold h-8 w-12 flex-shrink-0 flex items-center justify-center">{rp.bibNumber}</Badge>
@@ -130,10 +180,10 @@ export function SortableParticipantItem({ rp, getParticipantName, openEditDialog
               </div>
           </div>
           <div className="flex-shrink-0">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(rp)}>
+            <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl" onClick={() => openEditDialog(rp)} aria-label={`Modifier ${rp.entryName}`}>
                 <FileEdit className="h-4 w-4"/>
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeregister(rp.id)}>
+            <Button variant="ghost" size="icon" className="h-11 w-11 rounded-xl" onClick={() => handleDeregister(rp.id)} aria-label={`Désinscrire ${rp.entryName}`}>
                 <Trash2 className="h-4 w-4 text-destructive"/>
             </Button>
           </div>
@@ -143,9 +193,11 @@ export function SortableParticipantItem({ rp, getParticipantName, openEditDialog
 }
 
 
-export const HeatsAndParticipantsView = ({ regatta, sortedRegattaParticipants, allParticipants, availableParticipantsForRegistration, getParticipantName, handleDeregister, handleQuickRegister, openEditDialog, setIsRegisterDialogOpen, handleAddHeat, handleSelectHeat, setCurrentView }: any) => {
+export const HeatsAndParticipantsView = ({ regatta, sortedRegattaParticipants, allParticipants, availableParticipantsForRegistration, getParticipantName, handleDeregister, handleQuickRegister, openEditDialog, setIsRegisterDialogOpen, startRegistration, handleAddHeat, handleSelectHeat, setCurrentView }: any) => {
   const isTeamMode = regatta.type === 'team' || regatta.type === 'mixed';
   const firestore = useFirestore();
+  const [participantSearch, setParticipantSearch] = React.useState('');
+  const matchingAvailableParticipants = React.useMemo(() => availableParticipantsForRegistration.filter((participant: Participant) => `${participantSearchText(participant)} ${participant.club} ${participant.sailType}`.toLocaleLowerCase('fr-FR').includes(participantSearch.trim().toLocaleLowerCase('fr-FR'))), [availableParticipantsForRegistration, participantSearch]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -181,55 +233,51 @@ export const HeatsAndParticipantsView = ({ regatta, sortedRegattaParticipants, a
 
 
   return (
-    <main className="flex flex-1 flex-col p-4 md:p-6 relative">
-      <div className="flex items-center gap-4 mb-6">
-         <Link href="/" passHref><Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5"/></Button></Link>
-         <h1 className="text-2xl font-bold">{regatta?.name}</h1>
-      </div>
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 p-4 pb-28 md:p-8">
+      <section className="flex items-center gap-3 rounded-2xl border bg-card p-3 sm:p-4">
+         <Button asChild variant="outline" size="icon" className="h-12 w-12 shrink-0 rounded-xl"><Link href="/" aria-label="Retour aux régates"><ArrowLeft className="h-5 w-5"/></Link></Button>
+         <div className="min-w-0 flex-1"><p className="text-xs font-semibold uppercase tracking-wide text-primary">Gestion de régate</p><h1 className="truncate text-xl font-bold sm:text-2xl">{regatta?.name}</h1><p className="text-sm text-muted-foreground">{sortedRegattaParticipants.length} inscrit{sortedRegattaParticipants.length === 1 ? '' : 's'} · {regatta.heats.length} manche{regatta.heats.length === 1 ? '' : 's'}</p></div>
+         <Button variant="outline" className="hidden h-11 shrink-0 sm:inline-flex" onClick={() => setCurrentView(View.ScoringSettings)}>Règles de score</Button>
+      </section>
        <Tabs defaultValue="participants" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid h-14 w-full grid-cols-2 rounded-xl p-1">
           <TabsTrigger value="heats">Manches</TabsTrigger>
           <TabsTrigger value="participants">Participants</TabsTrigger>
         </TabsList>
         <TabsContent value="heats">
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
-             <Button variant="outline" onClick={handleAddHeat}>
-              <Plus className="h-4 w-4 mr-2"/>
-              Ajouter une manche
+           <div className="my-4 grid grid-cols-2 gap-3 md:grid-cols-3">
+             <Button className="h-12 rounded-xl" onClick={handleAddHeat}>
+              <Plus className="mr-2 h-4 w-4"/>Ajouter une manche
             </Button>
-            <Button onClick={() => setCurrentView(View.OverallResults)} disabled={(regatta?.heats.filter((h: Heat) => h.status === 'Finished').length ?? 0) === 0}>
+            <Button className="h-12 rounded-xl" variant="secondary" onClick={() => setCurrentView(View.OverallResults)} disabled={(regatta?.heats.filter((h: Heat) => h.status === 'Finished').length ?? 0) === 0}>
               <Trophy className="h-4 w-4 mr-2"/>
-              Classement Général
+              Classement général
             </Button>
+            <Button className="col-span-2 h-12 rounded-xl sm:col-span-1 md:hidden" variant="outline" onClick={() => setCurrentView(View.ScoringSettings)}>Règles de score</Button>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {regatta?.heats.map((heat: Heat) => (
               <Card 
                 key={heat.id} 
-                className="p-4 cursor-pointer hover:bg-accent"
-                onClick={() => handleSelectHeat(heat)}
+                className="rounded-2xl p-4"
               >
-                 <CardHeader className="p-0 mb-2">
+                 <CardHeader className="mb-2 p-0">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
                       <Flag className="h-5 w-5 text-muted-foreground"/>
-                      <CardTitle className="text-lg">{heat.name}</CardTitle>
+                      <CardTitle className="truncate text-lg">{heat.name}</CardTitle>
                     </div>
-                     <Button variant="ghost" size="sm">Gérer</Button>
                   </div>
                 </CardHeader>
-                <CardContent className="p-0">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <p className={cn("text-sm",
-                      heat.status === "In Progress" && "text-green-500",
-                      heat.status === "Finished" && "text-blue-500",
-                      heat.status === "Not Started" && "text-muted-foreground"
-                    )}>
+                <CardContent className="flex items-center justify-between gap-3 p-0">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", heat.status === "In Progress" ? "bg-emerald-500" : heat.status === "Finished" ? "bg-blue-500" : "bg-muted-foreground/50")} />
+                    <p className="truncate text-sm text-muted-foreground">
                       {heat.status === 'Not Started' ? 'En attente' : heat.status === 'In Progress' ? 'En cours' : 'Terminée'}
                     </p>
                   </div>
+                  <Button className="h-11 shrink-0 rounded-xl" variant={heat.status === 'In Progress' ? 'default' : 'outline'} onClick={() => handleSelectHeat(heat)}>{heat.status === 'Not Started' ? 'Saisir' : heat.status === 'In Progress' ? 'Continuer' : 'Résultats'}</Button>
                 </CardContent>
               </Card>
             ))}
@@ -239,22 +287,20 @@ export const HeatsAndParticipantsView = ({ regatta, sortedRegattaParticipants, a
           </div>
         </TabsContent>
         <TabsContent value="participants">
-           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-8">
+           <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
               <div>
-                <Card>
+                <Card className="rounded-2xl">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <Users className="h-5 w-5"/>
-                      Inscrits à la Régate ({sortedRegattaParticipants?.length ?? 0})
+                      Inscrits · {sortedRegattaParticipants?.length ?? 0}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {isTeamMode && (
-                        <Button onClick={() => setIsRegisterDialogOpen(true)} className="w-full mb-4">
-                            <UserPlus className="h-4 w-4 mr-2"/> Inscrire une Équipe
-                        </Button>
-                    )}
-                    <ScrollArea className="h-[50vh] pr-4">
+                    <Button onClick={() => startRegistration()} className="mb-4 h-12 w-full rounded-xl">
+                        <UserPlus className="mr-2 h-4 w-4"/> {isTeamMode ? 'Inscrire une équipe' : 'Inscrire un coureur'}
+                    </Button>
+                    <div className="pr-1">
                       <DndContext 
                         sensors={sensors}
                         collisionDetection={closestCenter}
@@ -279,49 +325,56 @@ export const HeatsAndParticipantsView = ({ regatta, sortedRegattaParticipants, a
                         </SortableContext>
                       </DndContext>
                          {sortedRegattaParticipants.length === 0 && (
-                            <div className="p-4 text-center text-muted-foreground">
-                              Aucun coureur inscrit pour cette régate.
+                            <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
+                              Inscrivez les participants avant d’ajouter une manche.
                             </div>
                          )}
-                    </ScrollArea>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
               
               <div>
-                 <Card>
+                 <Card className="rounded-2xl">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <Users className="h-5 w-5"/>
-                      Base de Données Coureurs ({availableParticipantsForRegistration?.length ?? 0})
+                      Coureurs déjà connus · {availableParticipantsForRegistration?.length ?? 0}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ScrollArea className="h-[calc(50vh+52px)] pr-4">
+                    <div className="space-y-3">
+                      {!isTeamMode && <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+                        <p className="text-sm text-muted-foreground">Nouveau nom sur la feuille ? Crée sa fiche et inscris-le ici, sans quitter la régate.</p>
+                        <Button className="mt-3 h-12 w-full rounded-xl" onClick={() => startRegistration()}>
+                          <UserPlus className="mr-2 h-4 w-4"/> Nouveau concurrent + dossard
+                        </Button>
+                      </div>}
+                      <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"/><Input className="h-12 rounded-xl pl-10" placeholder="Rechercher un coureur ou un club" value={participantSearch} onChange={event => setParticipantSearch(event.target.value)} /></div>
                       <div className="space-y-2">
-                        {availableParticipantsForRegistration.map((p: Participant) => (
-                          <Card key={p.id} className="p-3">
+                        {matchingAvailableParticipants.map((p: Participant) => (
+                          <Card key={p.id} className="rounded-xl p-3">
                             <div className="flex justify-between items-center">
                               <div className="flex-1 min-w-0">
-                                <p className="font-semibold truncate">{p.name}</p>
+                                <p className="font-semibold truncate">{participantDisplayName(p)}</p>
                                 <p className="text-xs text-muted-foreground truncate">{p.club} - {p.sailType}</p>
                               </div>
                               {!isTeamMode && (
-                                <Button size="sm" variant="outline" onClick={() => handleQuickRegister(p)}>
-                                  <Plus className="h-4 w-4 mr-2"/>
+                                <Button size="sm" className="h-11 rounded-xl" variant="outline" onClick={() => handleQuickRegister(p)}>
+                                  <Plus className="mr-2 h-4 w-4"/>
                                   Inscrire
                                 </Button>
                               )}
                             </div>
                           </Card>
                         ))}
-                         {availableParticipantsForRegistration.length === 0 && (
-                            <div className="p-4 text-center text-muted-foreground">
-                              Tous les coureurs de la base de données sont inscrits.
+                         {matchingAvailableParticipants.length === 0 && (
+                            <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                              {availableParticipantsForRegistration.length === 0 ? 'Tous les coureurs sont inscrits.' : 'Aucun coureur ne correspond à la recherche.'}
                             </div>
                          )}
                       </div>
-                    </ScrollArea>
+                    </div>
                   </CardContent>
                  </Card>
               </div>
@@ -332,124 +385,32 @@ export const HeatsAndParticipantsView = ({ regatta, sortedRegattaParticipants, a
   );
 }
 
-export const HeatDetailView = ({ activeHeat, sortedHeatResults, regattaParticipants, isTimerActive, timeLeft, selectedDuration, setSelectedDuration, handleStartSequence, handleResetTimer, calculatePoints, applyPenalty, recordFinishTime, setCurrentView, formatTime, getParticipantName }: any) => {
-  
-  return (
-     <main className="flex flex-1 flex-col h-screen">
-      <div className="flex items-center p-4 border-b flex-shrink-0">
-          <Button variant="ghost" size="icon" onClick={() => setCurrentView(View.HeatsList)}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-xl font-bold text-center flex-1">{activeHeat?.name} - Arrivées</h1>
-      </div>
+type HeatDetailProps = {
+  activeHeat?: Heat;
+  regattaParticipants: RegattaParticipant[];
+  isTimerActive: boolean;
+  timeLeft: number;
+  selectedDuration: string;
+  setSelectedDuration: (value: string) => void;
+  handleStartSequence: () => void;
+  handleResetTimer: () => void;
+  validateArrivalRows: (rows: CompetitorRaceResult[]) => Promise<void>;
+  persistArrivalRows: (rows: CompetitorRaceResult[]) => Promise<void>;
+  entryMode: 'paper' | 'live';
+  setEntryMode: (mode: 'paper' | 'live') => void;
+  setCurrentView: (view: View) => void;
+  formatTime: (seconds: number) => string;
+};
 
-      {activeHeat?.status !== 'Finished' && (
-        <div className="bg-card p-4 border-b flex-shrink-0">
-           <div className="text-center">
-              <div
-                className={cn(
-                  "font-mono font-bold text-5xl my-2 tabular-nums text-foreground",
-                  isTimerActive && timeLeft > 0 && "text-green-500",
-                  isTimerActive && timeLeft <= 10 && "text-destructive animate-pulse"
-                )}
-              >
-                {formatTime(timeLeft)}
-              </div>
-            </div>
-            <div className="flex items-center justify-center gap-2 mb-4">
-               <Select onValueChange={setSelectedDuration} defaultValue={selectedDuration} disabled={isTimerActive || activeHeat?.status !== 'Not Started'}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Temps de départ" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">Immédiat</SelectItem>
-                    <SelectItem value="30">30 secondes</SelectItem>
-                    <SelectItem value="60">1 minute</SelectItem>
-                    <SelectItem value="180">3 minutes</SelectItem>
-                    <SelectItem value="300">5 minutes</SelectItem>
-                  </SelectContent>
-                </Select>
-              <Button size="lg" className="h-12 px-6 text-base" onClick={handleStartSequence} disabled={isTimerActive || activeHeat?.status !== 'Not Started'} >
-                  Lancer Séquence
-              </Button>
-              <Button size="lg" variant="outline" className="h-12 px-4" onClick={handleResetTimer}>
-                  <RefreshCw className="h-5 w-5" />
-              </Button>
-            </div>
-        </div>
-      )}
-       {activeHeat?.status === 'In Progress' && (
-            <div className="p-4 flex-shrink-0">
-              <Button onClick={calculatePoints} className="w-full">
-                <ListOrdered className="mr-2 h-4 w-4" />
-                Terminer et Calculer les Résultats
-              </Button>
-            </div>
-          )}
-           {activeHeat?.status === 'Finished' && (
-            <div className="p-4 flex-shrink-0">
-            <Button onClick={() => setCurrentView(View.HeatResults)} className="w-full" >
-              <ListOrdered className="mr-2 h-4 w-4" />
-              Voir les Résultats
-            </Button>
-            </div>
-          )}
-      
-      <ScrollArea className="flex-1">
-        <div className="space-y-2 p-4">
-          {sortedHeatResults.map((result: any) => {
-              const regattaParticipant = regattaParticipants.find((p:RegattaParticipant) => p.id === result.regattaParticipantId);
-              if(!regattaParticipant) return null;
-              const hasFinished = !!result.passage.finish;
-              const isPenalized = result.status === 'PEN';
-
-              return (
-                <Card key={regattaParticipant.id} className="p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3  flex-1 min-w-0">
-                    <Badge variant="secondary" className="text-base font-bold h-8 w-12 flex-shrink-0 flex items-center justify-center">{regattaParticipant.bibNumber}</Badge>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-base truncate">{regattaParticipant.entryName}</p>
-                      {regattaParticipant.crewIds && regattaParticipant.crewIds.length > 0 && (
-                        <p className="text-xs text-muted-foreground truncate">
-                          {regattaParticipant.crewIds.map(getParticipantName).join(', ')}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className={cn(
-                        "h-10 w-10 p-0",
-                        isPenalized ? "bg-red-700 hover:bg-red-600" : "bg-red-500/50 hover:bg-red-500/80"
-                      )}
-                      onClick={() => applyPenalty(regattaParticipant.id)}
-                      disabled={activeHeat?.status === 'Finished'}
-                    >
-                      <ShieldAlert className="h-5 w-5" />
-                    </Button>
-                    <Button
-                      size="lg"
-                      className={cn(
-                        "h-10 w-32 text-sm", 
-                        hasFinished ? "bg-gray-600 hover:bg-gray-500" : "bg-primary hover:bg-primary/90 shadow-[0_0_15px_hsl(var(--primary))]",
-                        isPenalized && "bg-gray-600 hover:bg-gray-500 line-through"
-                      )}
-                      onClick={() => recordFinishTime(regattaParticipant.id)}
-                      disabled={isPenalized || activeHeat?.status !== 'In Progress'}
-                    >
-                      {hasFinished ? `Annuler (${result.passage.finish})` : isPenalized ? 'Pénalité' : 'Arrivée'}
-                    </Button>
-                  </div>
-                </Card>
-              );
-            })}
-        </div>
-      </ScrollArea>
-    </main>
-  );
-}
+export const HeatDetailView = ({ activeHeat, regattaParticipants, isTimerActive, timeLeft, selectedDuration, setSelectedDuration, handleStartSequence, handleResetTimer, validateArrivalRows, persistArrivalRows, entryMode, setEntryMode, setCurrentView, formatTime }: HeatDetailProps) => activeHeat ? (
+  <ArrivalEntry key={activeHeat.id} heat={activeHeat} participants={regattaParticipants} mode={entryMode} onMode={setEntryMode}
+    onSave={persistArrivalRows} onBack={() => setCurrentView(View.HeatsList)} onResults={() => setCurrentView(View.HeatResults)} onValidate={validateArrivalRows}
+    timer={<div className="flex flex-wrap items-center gap-2">
+      <span className="mr-auto font-mono text-2xl font-bold tabular-nums">{activeHeat.status === 'In Progress' ? 'Départ donné' : formatTime(timeLeft)}</span>
+      {activeHeat.status === 'Not Started' && <><Select onValueChange={setSelectedDuration} value={selectedDuration} disabled={isTimerActive}><SelectTrigger className="h-11 w-28"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">Immédiat</SelectItem><SelectItem value="30">30 s</SelectItem><SelectItem value="60">1 min</SelectItem><SelectItem value="180">3 min</SelectItem><SelectItem value="300">5 min</SelectItem></SelectContent></Select><Button className="h-11" onClick={isTimerActive ? handleResetTimer : handleStartSequence}>{isTimerActive ? 'Annuler' : 'Départ'}</Button></>}
+    </div>}
+  />
+) : null;
 
 export const HeatResultsView = ({ activeHeat, regattaParticipants, setCurrentView, getParticipantName }: any) => {
   const sortedResults = React.useMemo(() => {
@@ -460,16 +421,29 @@ export const HeatResultsView = ({ activeHeat, regattaParticipants, setCurrentVie
   return (
     <main className="flex flex-1 flex-col p-4 md:p-6">
       <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => setCurrentView(View.HeatsList)}>
+        <Button variant="ghost" size="icon" onClick={() => setCurrentView(View.HeatDetail)}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-xl font-bold">Résultats - {activeHeat?.name}</h1>
       </div>
+      {activeHeat?.status === 'Finished' && <Button className="mb-4 h-12 self-end" variant="outline" onClick={() => setCurrentView(View.HeatDetail)}>Corriger les arrivées</Button>}
       <Card>
         <CardHeader>
           <CardTitle>Classement de la Manche</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3 p-3 sm:p-6">
+          <ol className="space-y-2 md:hidden">
+            {sortedResults.map((result: CompetitorRaceResult, index: number) => {
+              const rp = regattaParticipants?.find((p: RegattaParticipant) => p.id === result.regattaParticipantId);
+              if (!rp) return null;
+              return <li key={result.regattaParticipantId} className="flex items-center gap-3 rounded-xl border p-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 font-bold text-primary">{result.rank ?? index + 1}</span>
+                <div className="min-w-0 flex-1"><p className="truncate font-semibold">{rp.entryName}</p><p className="text-sm text-muted-foreground">Dossard {rp.bibNumber} · {result.status}</p></div>
+                <div className="text-right"><p className="text-lg font-bold tabular-nums">{result.points}</p><p className="text-xs text-muted-foreground">points</p></div>
+              </li>;
+            })}
+          </ol>
+          <div className="hidden overflow-x-auto md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -503,6 +477,7 @@ export const HeatResultsView = ({ activeHeat, regattaParticipants, setCurrentVie
               })}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </main>
@@ -519,63 +494,55 @@ export const OverallResultsView = ({ regatta, finishedHeats, selectedSailType, s
           <Button variant="ghost" size="icon" onClick={() => setCurrentView(View.HeatsList)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-xl font-bold">Classement Général - {regatta?.name}</h1>
+          <h1 className="text-lg font-bold sm:text-xl">Classement général · {regatta?.name}</h1>
         </div>
-         <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={overallResults.length === 0}>
+         <Button variant="outline" className="h-11 shrink-0" onClick={handleExportCSV} disabled={overallResults.length === 0}>
           <FileDown className="h-4 w-4 mr-2" />
           Exporter en CSV
         </Button>
       </div>
-      <Card className="mb-4">
+      <Card className="mb-4 rounded-2xl">
         <CardHeader>
-            <CardTitle className="text-lg">Calcul des Discards</CardTitle>
-            <CardDescription>Retirer les moins bonnes manches du calcul final.</CardDescription>
+            <CardTitle className="text-lg">Manches à retirer</CardTitle>
+            <CardDescription>Le nombre de retraits défini dans les règles de score.</CardDescription>
         </CardHeader>
         <CardContent className="flex items-center gap-4">
            <Label htmlFor="discards-input" className="whitespace-nowrap text-sm text-muted-foreground">Manches à retirer :</Label>
             <NumberStepper 
               id="discards-input"
+              className="gap-2"
               value={numDiscards}
               onChange={setNumDiscards}
               min={0}
               max={finishedHeats.length > 0 ? finishedHeats.length -1 : 0}
             />
-            <Button size="sm" onClick={() => setDiscards(numDiscards)}>
+            <Button className="h-11" onClick={() => setDiscards(numDiscards)}>
               <Calculator className="h-4 w-4 mr-2" />
               Appliquer
             </Button>
         </CardContent>
       </Card>
 
-      <div className="space-y-4">
-          <Tabs value={selectedSailType} onValueChange={(value) => setSelectedSailType(value as any)} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="Général">Général</TabsTrigger>
-                <TabsTrigger value="Windsurf">Windsurf</TabsTrigger>
-                <TabsTrigger value="Wingfoil">Wingfoil</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <Tabs value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as any)} className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="Général">Général</TabsTrigger>
-                <TabsTrigger value="Jeune">Jeune</TabsTrigger>
-                <TabsTrigger value="Confirmé">Confirmé</TabsTrigger>
-                <TabsTrigger value="Vétéran">Vétéran</TabsTrigger>
-                <TabsTrigger value="Catamaran">Catamaran</TabsTrigger>
-                <TabsTrigger value="Dériveur">Dériveur</TabsTrigger>
-            </TabsList>
-          </Tabs>
+      <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2"><Label className="text-sm font-semibold">Support</Label><Tabs value={selectedSailType} onValueChange={(value) => setSelectedSailType(value as any)} className="w-full"><TabsList className="grid h-12 w-full grid-cols-3 rounded-xl"><TabsTrigger value="Général">Tous</TabsTrigger><TabsTrigger value="Windsurf">Windsurf</TabsTrigger><TabsTrigger value="Wingfoil">Wingfoil</TabsTrigger></TabsList></Tabs></div>
+          <div className="space-y-2"><Label htmlFor="overall-category" className="text-sm font-semibold">Catégorie</Label><Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as any)}><SelectTrigger id="overall-category" className="h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Général">Toutes les catégories</SelectItem><SelectItem value="Jeune">Jeune</SelectItem><SelectItem value="Confirmé">Confirmé</SelectItem><SelectItem value="Vétéran">Vétéran</SelectItem><SelectItem value="Catamaran">Catamaran</SelectItem><SelectItem value="Dériveur">Dériveur</SelectItem></SelectContent></Select></div>
       </div>
       
-         <Card className="mt-4">
+         <Card className="mt-4 rounded-2xl">
           <CardHeader>
             <CardTitle>
               Classement {selectedSailType !== 'Général' ? selectedSailType : ''} {selectedCategory !== 'Général' ? selectedCategory : 'Général'}
               ({discards > 0 ? `après ${discards} discard(s)` : 'sans discard'})
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
+          <CardContent className="p-3 sm:p-6">
+            <ol className="space-y-2 md:hidden">
+              {overallResults.length ? overallResults.map((result: OverallResult, index: number) => <li key={result.participantId} className="rounded-xl border p-3">
+                <div className="flex items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 font-bold text-primary">{index + 1}</span><div className="min-w-0 flex-1"><p className="truncate font-semibold">{result.entryName}</p>{result.crewNames.length > 0 && <p className="truncate text-xs text-muted-foreground">{result.crewNames.join(', ')}</p>}</div><div className="text-right"><p className="text-lg font-extrabold tabular-nums">{result.totalPoints}</p><p className="text-xs text-muted-foreground">points</p></div></div>
+                <div className="mt-3 flex flex-wrap gap-1.5">{result.scores.map((score, scoreIndex) => <span key={score.heatId} className={cn('rounded-lg bg-muted px-2 py-1 text-xs tabular-nums', score.isDiscarded && 'text-muted-foreground line-through opacity-60')}>{finishedHeats[scoreIndex]?.name}: {score.rank}</span>)}</div>
+              </li>) : <li className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">Aucun résultat dans cette sélection.</li>}
+            </ol>
+            <div className="hidden overflow-x-auto md:block">
               <Table>
                 <TableHeader>
                   <TableRow>

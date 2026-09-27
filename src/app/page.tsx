@@ -48,7 +48,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { CalendarIcon, Sailboat, Plus, Trash2, Loader2, RefreshCw } from "lucide-react";
+import { CalendarIcon, Sailboat, Plus, Trash2, Loader2, RefreshCw, Search, Flag, Trophy } from "lucide-react";
 import { useFirestore, useCollection } from "@/firebase";
 import type { Regatta } from "@/lib/types";
 import { sampleRegattas, sampleAllParticipants } from "@/lib/sample-data";
@@ -73,6 +73,7 @@ export default function Home() {
   const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
   const [regattaToDelete, setRegattaToDelete] = React.useState<Regatta | null>(null);
   const [isResetDialogOpen, setIsResetDialogOpen] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState('');
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -184,6 +185,11 @@ export default function Home() {
       console.error("Error resetting data: ", error);
     }
   }
+
+  const visibleRegattas = React.useMemo(() => {
+    const filtered = (regattas ?? []).filter(regatta => regatta.name.toLocaleLowerCase('fr-FR').includes(searchTerm.trim().toLocaleLowerCase('fr-FR')));
+    return filtered.sort((a, b) => b.date.localeCompare(a.date));
+  }, [regattas, searchTerm]);
   
   const renderContent = () => {
     if (loadingRegattas) {
@@ -194,56 +200,60 @@ export default function Home() {
       );
     }
     
-    if (regattas && regattas.length > 0) {
-      return regattas.map((regatta) => (
-        <Card key={regatta.id}>
-          <CardHeader>
-            <CardTitle>{regatta.name}</CardTitle>
+    if (visibleRegattas.length > 0) {
+      return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{visibleRegattas.map((regatta) => (
+        <Card key={regatta.id} className="overflow-hidden rounded-2xl border-border/80 shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <span className="rounded-xl bg-primary/10 p-2.5 text-primary"><Sailboat className="h-5 w-5" /></span>
+              <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">{new Date(`${regatta.date}T12:00:00`) >= new Date(new Date().toDateString()) ? 'À venir' : 'Passée'}</span>
+            </div>
+            <CardTitle className="line-clamp-2 min-h-12 text-lg">{regatta.name}</CardTitle>
             <CardDescription className="flex items-center gap-2 pt-1">
-              <CalendarIcon className="h-4 w-4"/>
-              {new Date(regatta.date).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })}
+              <CalendarIcon className="h-4 w-4 shrink-0" />
+              {new Date(`${regatta.date}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' })}
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex items-center justify-between">
-            <Link href={`/regatta/${regatta.id}/race-management`} passHref>
-              <Button>Gérer la Régate</Button>
-            </Link>
-            <Button variant="ghost" size="icon" onClick={() => setRegattaToDelete(regatta)}>
-                <Trash2 className="h-5 w-5 text-destructive" />
-            </Button>
+          <CardContent className="space-y-3">
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1.5"><Flag className="h-4 w-4" />{regatta.heats?.length ?? 0} manches</span>
+              <span className="flex items-center gap-1.5"><Trophy className="h-4 w-4" />{regatta.type === 'individual' ? 'Individuelle' : regatta.type === 'team' ? 'Équipe' : 'Mixte'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button asChild className="h-12 flex-1 rounded-xl"><Link href={`/regatta/${regatta.id}/race-management`}>Ouvrir la régate</Link></Button>
+              <Button variant="outline" size="icon" className="h-12 w-12 shrink-0 rounded-xl text-destructive hover:text-destructive" onClick={() => setRegattaToDelete(regatta)} aria-label={`Supprimer ${regatta.name}`}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           </CardContent>
         </Card>
-      ));
+      ))}</div>;
     }
 
     return (
-      <div className="text-center text-muted-foreground mt-16">
-        <p>Aucune régate pour le moment.</p>
-        <p>Cliquez sur "Créer une Régate" pour commencer ou "Réinitialiser" pour charger les données de démo.</p>
+      <div className="rounded-2xl border border-dashed bg-card px-6 py-14 text-center">
+        <span className="mx-auto mb-4 block w-fit rounded-full bg-primary/10 p-4 text-primary"><Sailboat className="h-8 w-8" /></span>
+        <p className="text-lg font-semibold">{searchTerm ? 'Aucune régate ne correspond' : 'Aucune régate enregistrée'}</p>
+        <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{searchTerm ? 'Essayez un autre nom ou effacez la recherche.' : 'Créez une régate pour inscrire les coureurs, reporter les arrivées et calculer le classement.'}</p>
+        {!searchTerm && <Button className="mt-5 h-12 rounded-xl" onClick={() => setIsAddDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Créer une régate</Button>}
       </div>
     );
   }
 
   return (
     <>
-      <main className="flex flex-1 flex-col p-4 md:p-6">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
-          <div className="flex items-center gap-4">
-            <Sailboat className="h-8 w-8 text-primary shrink-0" />
-            <h1 className="text-2xl font-bold">Gestionnaire de Régates</h1>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-             <Button onClick={() => setIsResetDialogOpen(true)} variant="outline" size="icon" title="Réinitialiser les données">
-                <RefreshCw className="h-4 w-4" />
-              </Button>
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-4 pb-28 md:p-8">
+        <section className="flex flex-col gap-5 rounded-3xl bg-slate-950 p-6 text-white sm:flex-row sm:items-end sm:justify-between md:p-8">
+          <div><p className="mb-2 text-sm font-semibold uppercase tracking-[0.16em] text-cyan-300">Voile · comité de course</p><h1 className="text-3xl font-bold tracking-tight md:text-4xl">Régates</h1><p className="mt-2 max-w-xl text-sm text-slate-300 md:text-base">Préparez les inscriptions, saisissez les arrivées et laissez l’app calculer le classement.</p></div>
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="h-12 flex-1 rounded-xl bg-white text-slate-900 hover:bg-slate-100 sm:flex-none">
                   <Plus className="mr-2 h-4 w-4" />
-                  Créer une Régate
+                  Créer une régate
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-2xl sm:max-w-[425px]">
                 <DialogHeader>
                   <DialogTitle>Nouvelle Régate</DialogTitle>
                 </DialogHeader>
@@ -256,7 +266,7 @@ export default function Home() {
                         <FormItem>
                            <FormLabel>Nom de la régate</FormLabel>
                           <FormControl>
-                            <Input placeholder="Nom de la régate" {...field} />
+                            <Input className="h-12" placeholder="Nom de la régate" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -269,7 +279,7 @@ export default function Home() {
                         <FormItem>
                            <FormLabel>Date</FormLabel>
                           <FormControl>
-                            <Input type="date" {...field} />
+                            <Input className="h-12" type="date" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -283,7 +293,7 @@ export default function Home() {
                           <FormLabel>Type de régate</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger>
+                              <SelectTrigger className="h-12">
                                 <SelectValue placeholder="Sélectionner un type" />
                               </SelectTrigger>
                             </FormControl>
@@ -297,22 +307,24 @@ export default function Home() {
                         </FormItem>
                       )}
                     />
-                    <div className="flex justify-end gap-2 pt-4">
-                      <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                    <div className="flex flex-col-reverse justify-end gap-2 pt-4 sm:flex-row">
+                      <Button className="h-12" type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                           Annuler
                         </Button>
-                      <Button type="submit">Enregistrer</Button>
+                      <Button className="h-12" type="submit">Créer la régate</Button>
                     </div>
                   </form>
                 </Form>
               </DialogContent>
             </Dialog>
           </div>
+        </section>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div><h2 className="text-xl font-bold">Vos régates</h2><p className="text-sm text-muted-foreground">{regattas?.length ?? 0} au total · les plus récentes en premier</p></div>
+          <div className="relative w-full sm:max-w-xs"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input className="h-12 rounded-xl pl-10" placeholder="Rechercher une régate" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
         </div>
-
-        <div className="space-y-4">
-          {renderContent()}
-        </div>
+        <div className="space-y-4">{renderContent()}</div>
+        <div className="flex justify-end"><Button variant="ghost" className="h-11 text-muted-foreground" onClick={() => setIsResetDialogOpen(true)}><RefreshCw className="mr-2 h-4 w-4" />Charger les données de démonstration</Button></div>
       </main>
       
       <AlertDialog open={!!regattaToDelete} onOpenChange={(open) => !open && setRegattaToDelete(null)}>

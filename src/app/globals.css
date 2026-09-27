@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
@@ -80,7 +81,34 @@
   * {
     @apply border-border;
   }
+  html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+  button, a, [role="button"] {
+    touch-action: manipulation;
+  }
+  .press-feedback {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    transition-property: transform, color, background-color, border-color;
+    transition-duration: 150ms;
+    transition-timing-function: var(--ease-out);
+  }
+  .press-feedback:active {
+    transform: scale(0.97);
+  }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .press-feedback {
+    transition: none;
+  }
+  .press-feedback:active {
+    transform: none;
   }
 }
